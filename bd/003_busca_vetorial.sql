@@ -1,0 +1,4 @@
+-- Este arquivo foi movido.
+-- Fonte de verdade (aplicada pelo Supabase CLI) em:
+--   supabase/migrations/
+-- Nao edite aqui. Edite as migracoes com prefixo de timestamp.
