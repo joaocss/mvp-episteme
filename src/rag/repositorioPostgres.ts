@@ -51,6 +51,11 @@ export class RepositorioPostgres implements RepositorioTrechos {
     }));
   }
 
+  async classificarBncc(consulta: number[]): Promise<string | null> {
+    const { rows } = await this.pool.query(`select buscar_bncc($1::vector) as codigo`, [vetorParaLiteral(consulta)]);
+    return rows[0]?.codigo ?? null;
+  }
+
   async encerrar(): Promise<void> {
     await this.pool.end();
   }

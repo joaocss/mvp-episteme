@@ -185,3 +185,21 @@ export async function exportarInteracoesCsv(professorId: string): Promise<string
   });
   return [cab, ...linhas].join("\n");
 }
+
+export interface CompetenciaTrabalhada { codigo: string; unidade: string; total: number; }
+
+export async function competenciasTrabalhadas(professorId: string, limite = 15): Promise<CompetenciaTrabalhada[]> {
+  const { rows } = await pool.query(
+    `with alunos as (${ALUNOS_DO_PROFESSOR})
+     select c.codigo, c.unidade_tematica as unidade, count(*) as total
+     from interacoes i
+     join sessoes_tutor s on s.id = i.sessao_id
+     join competencias_bncc c on c.codigo = i.competencia_bncc
+     where s.aluno_id in (select aluno_id from alunos) and i.competencia_bncc is not null
+     group by c.codigo, c.unidade_tematica
+     order by total desc
+     limit $2`,
+    [professorId, limite],
+  );
+  return rows.map((r) => ({ codigo: r.codigo, unidade: r.unidade, total: Number(r.total) || 0 }));
+}

@@ -79,7 +79,7 @@ export async function POST(requisicao: Request) {
     const interacaoIa = await registrarInteracao({
       escolaId, sessaoId, autor: "ia", conteudo: conteudoIa,
       modelo: resultado.telemetria.modelo, tokensEntrada: resultado.telemetria.tokensEntrada,
-      tokensSaida: resultado.telemetria.tokensSaida, latenciaMs, traceId,
+      tokensSaida: resultado.telemetria.tokensSaida, latenciaMs, competenciaBncc: resultado.competenciaBncc, traceId,
     });
     if (!resultado.recusado && resultado.fontes.length) {
       await registrarFontes(escolaId, interacaoIa, resultado.fontes);

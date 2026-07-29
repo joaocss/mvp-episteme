@@ -32,6 +32,8 @@ export interface TrechoRecuperado {
 export interface RepositorioTrechos {
   inserir(escolaId: string, chunks: ChunkParaInserir[]): Promise<void>;
   buscar(escolaId: string, consulta: number[], limite: number): Promise<TrechoRecuperado[]>;
+  // Opcional: classifica um vetor na habilidade BNCC mais proxima.
+  classificarBncc?(consulta: number[]): Promise<string | null>;
 }
 
 export interface ChunkParaInserir {

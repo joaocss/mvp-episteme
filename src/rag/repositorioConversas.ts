@@ -23,16 +23,17 @@ export interface DadosInteracao {
   tokensEntrada?: number | null;
   tokensSaida?: number | null;
   latenciaMs?: number | null;
+  competenciaBncc?: string | null;
   traceId: string;
 }
 
 export async function registrarInteracao(d: DadosInteracao): Promise<string> {
   const { rows } = await pool.query(
     `insert into interacoes
-       (escola_id, sessao_id, autor, conteudo, modelo, tokens_entrada, tokens_saida, latencia_ms, trace_id)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`,
+       (escola_id, sessao_id, autor, conteudo, modelo, tokens_entrada, tokens_saida, latencia_ms, competencia_bncc, trace_id)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id`,
     [d.escolaId, d.sessaoId, d.autor, d.conteudo, d.modelo ?? null,
-     d.tokensEntrada ?? null, d.tokensSaida ?? null, d.latenciaMs ?? null, d.traceId],
+     d.tokensEntrada ?? null, d.tokensSaida ?? null, d.latenciaMs ?? null, d.competenciaBncc ?? null, d.traceId],
   );
   return rows[0].id;
 }

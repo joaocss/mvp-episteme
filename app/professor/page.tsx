@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { lerToken } from "../../lib/sessao";
 import {
-  estatisticasProfessor, listarSessoes, alertas, registrarAcessoProfessor,
+  estatisticasProfessor, listarSessoes, alertas, competenciasTrabalhadas, registrarAcessoProfessor,
 } from "../../src/bd/professor";
 
 export const runtime = "nodejs";
@@ -25,10 +25,11 @@ export default async function PaginaProfessor() {
   if (!sessao || sessao.papel !== "professor") redirect("/login");
 
   await registrarAcessoProfessor(sessao.escolaId, sessao.usuarioId);
-  const [est, sessoes, listaAlertas] = await Promise.all([
+  const [est, sessoes, listaAlertas, competencias] = await Promise.all([
     estatisticasProfessor(sessao.usuarioId),
     listarSessoes(sessao.usuarioId),
     alertas(sessao.usuarioId),
+    competenciasTrabalhadas(sessao.usuarioId),
   ]);
 
   return (
@@ -59,6 +60,20 @@ export default async function PaginaProfessor() {
                 <p className="text-sm font-medium text-slate-800">{a.categoria} · {a.severidade}</p>
                 <p className="text-sm text-slate-600">{a.detalhe}</p>
                 <p className="mt-1 text-xs text-slate-400">{a.aluno} · {a.quando}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {competencias.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold">Competências (BNCC) mais trabalhadas</h2>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {competencias.map((c) => (
+              <li key={c.codigo} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm">
+                <span className="font-medium text-slate-800">{c.codigo}</span>
+                <span className="text-slate-400"> · {c.unidade} · {c.total}</span>
               </li>
             ))}
           </ul>

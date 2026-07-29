@@ -47,6 +47,7 @@ export interface ResultadoTutor {
   resposta?: string;
   opcoes?: string[];
   tema?: string;
+  competenciaBncc?: string;
   fontes: TrechoRecuperado[];
   eventos: EventoGuardrail[];
   telemetria: { melhorScore: number; modelo?: string; tokensEntrada?: number; tokensSaida?: number };
@@ -97,6 +98,10 @@ export async function responder(
   const melhorScore = fontes[0]?.score ?? 0;
   base.telemetria.melhorScore = Number(melhorScore.toFixed(3));
   base.fontes = fontes;
+  if (dep.repositorio.classificarBncc) {
+    try { base.competenciaBncc = (await dep.repositorio.classificarBncc(vetor)) ?? undefined; }
+    catch { /* etiquetagem best-effort */ }
+  }
 
   if (melhorScore < LIMIAR_GROUNDING) {
     return { ...base, recusado: true, motivo: "sem_base", resposta: MENSAGEM_SEM_BASE };
