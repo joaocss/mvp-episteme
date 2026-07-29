@@ -7,3 +7,4 @@ __pycache__/
 .supabase/
 .DS_Store
 /local/
+rag/exemplo/*.txt
