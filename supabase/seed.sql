@@ -8,3 +8,17 @@ insert into materiais_fonte (id, escola_id, tipo, disciplina, ano, titulo, statu
    '00000000-0000-0000-0000-000000000001',
    'livro', 'matematica', '6o ano', 'Superacao Matematica 6 ano', 'pendente')
   on conflict (id) do nothing;
+
+-- Pre-cadastro de teste: uma turma de 6o ano e o Joao como aluno.
+insert into turmas (id, escola_id, nome, ano_letivo, serie) values
+  ('00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000001','6o A',2026,'6o ano')
+  on conflict (id) do nothing;
+
+insert into usuarios (id, escola_id, papel, nome, email) values
+  ('00000000-0000-0000-0000-000000000030','00000000-0000-0000-0000-000000000001','aluno','Joao (teste)','joaosena.cosme@gmail.com')
+  on conflict (id) do nothing;
+
+insert into matriculas (id, escola_id, aluno_id, turma_id) values
+  ('00000000-0000-0000-0000-000000000040','00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000030','00000000-0000-0000-0000-000000000020')
+  on conflict (id) do nothing;

@@ -53,7 +53,12 @@ export default function PaginaTutor() {
 
   return (
     <main className="mx-auto flex h-screen max-w-2xl flex-col p-4">
-      <h1 className="text-xl font-bold">Tutor de Matemática — 6º ano</h1>
+      <header className="flex items-center justify-between">
+        <h1 className="text-xl font-bold">Tutor de Matemática — 6º ano</h1>
+        <form action="/auth/sair" method="post">
+          <button type="submit" className="text-sm text-slate-500 hover:text-slate-800">Sair</button>
+        </form>
+      </header>
 
       <section
         className="mt-4 flex-1 space-y-3 overflow-y-auto rounded-lg bg-white p-4 shadow-sm"
