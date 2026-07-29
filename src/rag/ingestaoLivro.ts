@@ -8,10 +8,20 @@ import { EmbeddingsGemini } from "../ia/provedorGemini";
 import { EmbeddingsMock } from "../ia/provedorMock";
 import { ProvedorEmbeddings, ChunkParaInserir } from "../ia/tipos";
 import { RepositorioSupabase } from "./repositorioSupabase";
+import { RepositorioPostgres } from "./repositorioPostgres";
+import { RepositorioTrechos } from "../ia/tipos";
 import { criarClienteBackend } from "../bd/cliente";
 import { chunkarTexto } from "./chunkerTexto";
 
 carregarEnvLocal();
+
+function criarRepositorio(): RepositorioTrechos {
+  // Tarefa de backend: conexao direta ao Postgres se houver DATABASE_URL;
+  // senao, cliente Supabase (usado pelo app com JWT do usuario).
+  return process.env.DATABASE_URL
+    ? new RepositorioPostgres()
+    : new RepositorioSupabase(criarClienteBackend());
+}
 const USAR_MOCK = process.env.USAR_MOCK === "1";
 const LOTE = 50;
 
@@ -26,7 +36,7 @@ async function principal() {
     process.exit(1);
   }
   const embeddings = criarEmbeddings();
-  const repo = new RepositorioSupabase(criarClienteBackend());
+  const repo = criarRepositorio();
   console.log(`Provedor de embeddings: ${embeddings.nome}${USAR_MOCK ? " (MOCK)" : ""}`);
 
   const chunks = chunkarTexto(readFileSync(caminho, "utf-8"));
@@ -53,4 +63,6 @@ async function principal() {
   console.log(`Concluido: ${feitos} trechos ingeridos.`);
 }
 
-principal().catch((e) => { console.error(e); process.exit(1); });
+principal()
+  .then(() => process.exit(0))
+  .catch((e) => { console.error(e); process.exit(1); });
