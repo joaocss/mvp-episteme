@@ -1,10 +1,9 @@
-// Pergunta ao tutor pelo pipeline real (Supabase + Gemini).
+// Pergunta ao tutor pelo pipeline real. Provedores por env:
+//   EMBEDDING_PROVEDOR / LLM_PROVEDOR = openai | ollama | gemini | (USAR_MOCK=1)
 // Uso:  tsx src/rag/perguntar.ts <escolaId> "sua pergunta"
-// Para testar SEM chave do Gemini: USAR_MOCK=1
 import { carregarEnvLocal } from "../bd/ambiente";
-import { LlmGemini } from "../ia/provedorGemini";
 import { criarEmbeddings } from "../ia/fabricaEmbeddings";
-import { LlmMock } from "../ia/provedorMock";
+import { criarLlm } from "../ia/fabricaLlm";
 import { RepositorioSupabase } from "./repositorioSupabase";
 import { RepositorioPostgres } from "./repositorioPostgres";
 import { RepositorioTrechos } from "../ia/tipos";
@@ -14,14 +13,10 @@ import { responder, Dependencias } from "./tutor";
 carregarEnvLocal();
 
 function criarRepositorio(): RepositorioTrechos {
-  // Tarefa de backend: conexao direta ao Postgres se houver DATABASE_URL;
-  // senao, cliente Supabase (usado pelo app com JWT do usuario).
   return process.env.DATABASE_URL
     ? new RepositorioPostgres()
     : new RepositorioSupabase(criarClienteBackend());
 }
-const USAR_MOCK = process.env.USAR_MOCK === "1";
-console.log(USAR_MOCK ? ">>> MODO: MOCK (Gemini desligado) <<<" : ">>> MODO: REAL (Gemini) <<<");
 
 async function principal() {
   const [, , escolaId, ...resto] = process.argv;
@@ -32,9 +27,10 @@ async function principal() {
   }
   const dep: Dependencias = {
     embeddings: criarEmbeddings(),
-    llm: USAR_MOCK ? new LlmMock() : new LlmGemini(),
+    llm: criarLlm(),
     repositorio: criarRepositorio(),
   };
+  console.log(`>>> embeddings=${dep.embeddings.nome} | llm=${dep.llm.nome} <<<`);
   const r = await responder(escolaId, pergunta, dep);
   console.log(JSON.stringify(r, null, 2));
 }
