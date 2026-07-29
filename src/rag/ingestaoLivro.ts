@@ -1,16 +1,23 @@
-// Ingestao REAL de um livro para o Supabase, com embeddings do Gemini.
-// Uso:
-//   tsx src/rag/ingestaoLivro.ts <caminho_txt> <escolaId> <materialId>
-// Requer no ambiente: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
-// EMBEDDING_API_KEY. Extraia o txt antes: pdftotext livro.pdf livro.txt
+// Ingestao de um livro (texto) para o Supabase.
+// Uso:  tsx src/rag/ingestaoLivro.ts <caminho_txt> <escolaId> <materialId>
+// Env:  NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, EMBEDDING_API_KEY
+// Para testar SEM chave do Gemini (embedding mock de 768d): USAR_MOCK=1
 import { readFileSync } from "node:fs";
+import { carregarEnvLocal } from "../bd/ambiente";
 import { EmbeddingsGemini } from "../ia/provedorGemini";
+import { EmbeddingsMock } from "../ia/provedorMock";
+import { ProvedorEmbeddings, ChunkParaInserir } from "../ia/tipos";
 import { RepositorioSupabase } from "./repositorioSupabase";
 import { criarClienteBackend } from "../bd/cliente";
 import { chunkarTexto } from "./chunkerTexto";
-import { ChunkParaInserir } from "../ia/tipos";
 
+carregarEnvLocal();
+const USAR_MOCK = process.env.USAR_MOCK === "1";
 const LOTE = 50;
+
+function criarEmbeddings(): ProvedorEmbeddings {
+  return USAR_MOCK ? new EmbeddingsMock(768) : new EmbeddingsGemini();
+}
 
 async function principal() {
   const [, , caminho, escolaId, materialId] = process.argv;
@@ -18,11 +25,12 @@ async function principal() {
     console.error("Uso: tsx src/rag/ingestaoLivro.ts <caminho_txt> <escolaId> <materialId>");
     process.exit(1);
   }
-  const embeddings = new EmbeddingsGemini();
+  const embeddings = criarEmbeddings();
   const repo = new RepositorioSupabase(criarClienteBackend());
+  console.log(`Provedor de embeddings: ${embeddings.nome}${USAR_MOCK ? " (MOCK)" : ""}`);
 
   const chunks = chunkarTexto(readFileSync(caminho, "utf-8"));
-  console.log(`Chunks: ${chunks.length}. Gerando embeddings (${embeddings.nome})...`);
+  console.log(`Chunks: ${chunks.length}. Gravando...`);
 
   let lote: ChunkParaInserir[] = [];
   let feitos = 0;
