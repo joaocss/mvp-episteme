@@ -33,3 +33,13 @@ insert into professores_turmas (id, escola_id, professor_id, turma_id, disciplin
   ('00000000-0000-0000-0000-000000000060','00000000-0000-0000-0000-000000000001',
    '00000000-0000-0000-0000-000000000050','00000000-0000-0000-0000-000000000020','matematica')
   on conflict (id) do nothing;
+
+-- Gestor de teste (diretor/coordenador).
+insert into usuarios (id, escola_id, papel, nome, email) values
+  ('00000000-0000-0000-0000-000000000070','00000000-0000-0000-0000-000000000001',
+   'gestor','Gestor (teste)','gestor@episteme.teste')
+  on conflict (id) do nothing;
+
+-- Senha padrao 'episteme123' para todos os usuarios de teste.
+update usuarios set senha_hash = 'b1769fae28105b08dff82d572e1f8cfb:649aed0ea8616585f5e139e86345a28e3f36f67aaa48fa63d98532034dfa4403'
+ where email in ('joaosena.cosme@gmail.com','professor@episteme.teste','gestor@episteme.teste');

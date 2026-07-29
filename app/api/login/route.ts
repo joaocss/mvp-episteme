@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
 import { buscarUsuarioPorEmail } from "../../../src/bd/alunos";
+import { verificarSenha } from "../../../lib/senha";
 import { criarToken } from "../../../lib/sessao";
 
 export const runtime = "nodejs";
 
 export async function POST(requisicao: Request) {
-  const { email } = await requisicao.json().catch(() => ({ email: "" }));
-  if (!email || typeof email !== "string") {
-    return NextResponse.json({ erro: "Informe o email." }, { status: 400 });
+  const { email, senha } = await requisicao.json().catch(() => ({ email: "", senha: "" }));
+  if (!email || !senha) {
+    return NextResponse.json({ erro: "Informe email e senha." }, { status: 400 });
   }
-  const usuario = await buscarUsuarioPorEmail(email);
-  if (!usuario) {
-    return NextResponse.json({ erro: "Email não cadastrado." }, { status: 401 });
+  const usuario = await buscarUsuarioPorEmail(String(email));
+  if (!usuario || !verificarSenha(String(senha), usuario.senhaHash)) {
+    return NextResponse.json({ erro: "Email ou senha inválidos." }, { status: 401 });
   }
   const resposta = NextResponse.json({ ok: true, papel: usuario.papel, nome: usuario.nome });
   resposta.cookies.set(

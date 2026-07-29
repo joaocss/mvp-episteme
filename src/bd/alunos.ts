@@ -1,34 +1,28 @@
-// Consulta e cadastro simples de alunos (via Postgres direto). Para o MVP,
-// todo aluno cadastrado entra na turma de 6o ano da escola de demonstracao.
+// Consulta e cadastro de usuarios/alunos (Postgres direto), com senha (piloto).
 import pg from "pg";
+import { gerarHashSenha } from "../../lib/senha";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const ESCOLA_DEMO = "00000000-0000-0000-0000-000000000001";
 const TURMA_6ANO = "00000000-0000-0000-0000-000000000020";
 
-export interface Aluno {
-  id: string;
-  escolaId: string;
-  nome: string;
-}
+export interface Aluno { id: string; escolaId: string; nome: string; }
+export interface Usuario { id: string; escolaId: string; papel: string; nome: string; senhaHash: string | null; }
 
-export async function buscarAlunoPorEmail(email: string): Promise<Aluno | null> {
+export async function buscarUsuarioPorEmail(email: string): Promise<Usuario | null> {
   const { rows } = await pool.query(
-    `select u.id, u.escola_id, u.nome
-       from usuarios u
-       join matriculas m on m.aluno_id = u.id
-       join turmas t on t.id = m.turma_id
-      where lower(u.email) = lower($1)
-        and u.papel = 'aluno'
-        and t.serie = '6o ano'
-      limit 1`,
+    `select id, escola_id, papel, nome, senha_hash from usuarios where lower(email) = lower($1) limit 1`,
     [email],
   );
   if (!rows[0]) return null;
-  return { id: rows[0].id, escolaId: rows[0].escola_id, nome: rows[0].nome };
+  return {
+    id: rows[0].id, escolaId: rows[0].escola_id, papel: rows[0].papel,
+    nome: rows[0].nome, senhaHash: rows[0].senha_hash,
+  };
 }
 
-export async function criarAluno(email: string, nome: string): Promise<Aluno> {
+export async function criarAluno(email: string, nome: string, senha: string): Promise<Aluno> {
+  const hash = gerarHashSenha(senha);
   const existente = await pool.query(
     `select id, escola_id from usuarios where lower(email) = lower($1) limit 1`,
     [email],
@@ -38,11 +32,12 @@ export async function criarAluno(email: string, nome: string): Promise<Aluno> {
   if (existente.rows[0]) {
     alunoId = existente.rows[0].id;
     escolaId = existente.rows[0].escola_id;
+    await pool.query(`update usuarios set senha_hash = $1 where id = $2`, [hash, alunoId]);
   } else {
     const ins = await pool.query(
-      `insert into usuarios (escola_id, papel, nome, email)
-       values ($1, 'aluno', $2, $3) returning id`,
-      [ESCOLA_DEMO, nome, email],
+      `insert into usuarios (escola_id, papel, nome, email, senha_hash)
+       values ($1, 'aluno', $2, $3, $4) returning id`,
+      [ESCOLA_DEMO, nome, email, hash],
     );
     alunoId = ins.rows[0].id;
     escolaId = ESCOLA_DEMO;
@@ -53,20 +48,4 @@ export async function criarAluno(email: string, nome: string): Promise<Aluno> {
     [escolaId, alunoId, TURMA_6ANO],
   );
   return { id: alunoId, escolaId, nome };
-}
-
-export interface Usuario {
-  id: string;
-  escolaId: string;
-  papel: string;
-  nome: string;
-}
-
-export async function buscarUsuarioPorEmail(email: string): Promise<Usuario | null> {
-  const { rows } = await pool.query(
-    `select id, escola_id, papel, nome from usuarios where lower(email) = lower($1) limit 1`,
-    [email],
-  );
-  if (!rows[0]) return null;
-  return { id: rows[0].id, escolaId: rows[0].escola_id, papel: rows[0].papel, nome: rows[0].nome };
 }
