@@ -11,3 +11,4 @@ rag/exemplo/*.txt
 /superacao.txt
 .next/
 next-env.d.ts
+tsconfig.tsbuildinfo

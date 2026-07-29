@@ -1,3 +1,43 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Tokens da marca disponiveis tambem como CSS vars (uso pontual fora do Tailwind). */
+:root {
+  --roxo: #3b2c63;
+  --roxo-escuro: #2f2350;
+  --dourado: #c79a3b;
+  --creme: #f3efdd;
+  --grafite: #2a2540;
+}
+
+@layer base {
+  /* Titulos e marca: serifada, para credibilidade academica. */
+  h1, h2, h3 {
+    font-family: Georgia, "Times New Roman", serif;
+  }
+
+  /* Foco sempre visivel (acessibilidade / navegacao por teclado). */
+  :focus-visible {
+    outline: 2px solid var(--roxo);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Botao primario reutilizavel: alvo de toque generoso (~44px), feedback de estado. */
+  .btn-primario {
+    @apply inline-flex min-h-[44px] items-center justify-center rounded-lg bg-roxo px-5 py-2.5
+           font-medium text-white transition hover:bg-roxo-escuro
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secundario {
+    @apply inline-flex min-h-[44px] items-center justify-center rounded-lg border border-roxo/30
+           bg-white px-5 py-2.5 font-medium text-roxo transition hover:bg-creme;
+  }
+
+  .cartao {
+    @apply rounded-xl border border-slate-200 bg-white shadow-cartao;
+  }
+}

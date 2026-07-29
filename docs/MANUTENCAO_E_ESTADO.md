@@ -59,37 +59,44 @@ npm install && npm run dev
 
 Logins de teste (senha `episteme123`): aluno `joaosena.cosme@gmail.com`; professor `professor@episteme.teste`; gestor `gestor@episteme.teste`.
 
-## 6. Estado do deploy em nuvem (29/07/2026)
+## 6. Estado do deploy em nuvem (CONCLUÍDO — 29/07/2026)
+
+O sistema está **100% no ar e funcional de ponta a ponta**: login, painéis (aluno/professor/gestor) e tutor com base no livro.
 
 | Item | Estado |
 |---|---|
-| App na Vercel (build) | Pronto e publicado |
-| GitHub `main` | Atualizado (fazer `git push` a cada mudança antes do deploy) |
-| Supabase Cloud: migrações | Aplicadas (`supabase db push`) |
-| Supabase Cloud: enum `papel_usuario` com `gestor` | Corrigido via SQL na nuvem |
-| Supabase Cloud: seed (usuários + senhas) | Aplicado via SQL Editor |
-| **Vercel `DATABASE_URL`** | **PENDENTE — usar string do POOLER (ver abaixo)** |
-| Ingestão do livro na nuvem | **PENDENTE — rodar da máquina apontando ao pooler** |
+| App na Vercel (build) | ✅ Publicado — `https://mvp-episteme-nu8r.vercel.app` |
+| GitHub `main` | ✅ Atualizado (fazer `git push` a cada mudança antes do deploy) |
+| Supabase Cloud: migrações | ✅ Aplicadas (`supabase db push`) |
+| Supabase Cloud: enum `papel_usuario` com `gestor` | ✅ Corrigido via SQL na nuvem |
+| Supabase Cloud: seed (usuários + senhas) | ✅ Aplicado via SQL Editor |
+| **Vercel `DATABASE_URL`** | ✅ Ajustada para o **Session pooler** (porta 5432) e redeploy feito |
+| Coluna `material_chunks.embedding` na nuvem | ✅ Alterada de `vector(1536)` → `vector(768)` (índice ivfflat recriado) |
+| Ingestão BNCC + livro na nuvem | ✅ Feita — **1937 trechos** de `superacao.txt` gravados |
 
-### Passos que faltam para o login/tutor funcionarem em produção
+### String de conexão de produção (Session pooler)
 
-1. **Corrigir a `DATABASE_URL` na Vercel** (Settings → Environment Variables → editar) para o **Transaction pooler** (região us-east-1), com o `@` da senha como `%40`:
-   ```
-   postgresql://postgres.gkycodihvnnrfldibywy:SENHA%40...@aws-0-us-east-1.pooler.supabase.com:6543/postgres
-   ```
-   Depois **Redeploy**. Se der erro de `prepared statement`, trocar para o **Session pooler** (mesma string, porta **5432**).
-2. **Ingerir o livro na nuvem** (da máquina, uma vez), com a string do **Session pooler** (5432) em `DATABASE_URL`:
-   ```powershell
-   npx tsx src/rag/ingestaoBncc.ts
-   npx tsx src/rag/ingestaoLivro.ts superacao.txt 00000000-0000-0000-0000-000000000001 00000000-0000-0000-0000-000000000010
-   ```
+```
+postgresql://postgres.gkycodihvnnrfldibywy:SENHA%40...@aws-0-us-east-1.pooler.supabase.com:5432/postgres
+```
+
+Usada tanto na `DATABASE_URL` da Vercel quanto nos scripts de ingestão rodados da máquina (via `$env:DATABASE_URL=...` no PowerShell, antes do `npx tsx ...`). O `@` da senha vira `%40`.
+
+### Como refazer a ingestão de conteúdo (se trocar/atualizar o livro)
+
+```powershell
+$env:DATABASE_URL="postgresql://postgres.gkycodihvnnrfldibywy:SENHA%40...@aws-0-us-east-1.pooler.supabase.com:5432/postgres"
+npx tsx src/rag/ingestaoBncc.ts
+npx tsx src/rag/ingestaoLivro.ts superacao.txt 00000000-0000-0000-0000-000000000001 00000000-0000-0000-0000-000000000010
+```
 
 ## 7. Lições aprendidas (evitar retrabalho)
 
 - **Sempre `git push` antes do deploy** — a Vercel parte do GitHub, não da máquina.
 - **Conexão direta do Supabase (`db.<ref>.supabase.co`) é IPv6/paga** e não resolve em rede IPv4 → **usar sempre o pooler** (`...pooler.supabase.com`): Transaction (6543) para o app serverless, Session (5432) para scripts/ingestão.
-- **Editar uma migração já aplicada não a reexecuta** — na nuvem, aplicar correções (ex.: `alter type ... add value 'gestor'`) direto por SQL.
+- **Editar uma migração já aplicada não a reexecuta** — na nuvem, aplicar correções (ex.: `alter type ... add value 'gestor'`) direto por SQL. O `create table if not exists` **não altera** uma tabela existente: por isso a coluna `material_chunks.embedding` ficou `vector(1536)` na nuvem (schema antigo) enquanto a migração já dizia `768`. Correção aplicada por SQL: `drop index idx_chunks_embedding; alter table material_chunks alter column embedding type vector(768); create index ... ivfflat ...`. **Dimensão canônica do projeto: 768** (OpenAI `text-embedding-3-small` pedindo `dimensions:768`).
 - **Senha do banco com `@`** precisa virar `%40` na connection string.
+- **Ordem de import nos scripts de ingestão**: `src/bd/pool.ts` lê `process.env.DATABASE_URL` no momento do `import`, que roda **antes** do `carregarEnvLocal()`. Ou seja, o pool usa a `DATABASE_URL` que estiver no shell. Para ingerir na nuvem, setar `$env:DATABASE_URL` (pooler) **na mesma sessão** antes de rodar o script — isso vence o `.env.local` (que aponta para o banco local). Melhoria futura opcional: chamar `carregarEnvLocal()` dentro de `pool.ts` antes de criar o pool.
 
 ## 8. Próximos módulos (roadmap)
 
