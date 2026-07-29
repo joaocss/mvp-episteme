@@ -36,9 +36,12 @@ export default async function PaginaGestor() {
           <h1 className="text-2xl font-bold">Painel Gestor</h1>
           <p className="text-sm text-slate-500">Visão geral da escola</p>
         </div>
-        <form action="/auth/sair" method="post">
-          <button type="submit" className="text-sm text-slate-500 hover:text-slate-800">Sair</button>
-        </form>
+        <div className="flex items-center gap-4">
+          <a href="/gestor/gestao" className="text-sm text-[#3B2C63] hover:underline">Gestão / Cadastros</a>
+          <form action="/auth/sair" method="post">
+            <button type="submit" className="text-sm text-slate-500 hover:text-slate-800">Sair</button>
+          </form>
+        </div>
       </header>
 
       <section className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5" aria-label="Indicadores">

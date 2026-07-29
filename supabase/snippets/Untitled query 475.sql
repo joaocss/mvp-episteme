@@ -1,0 +1,2 @@
+update usuarios set senha_hash = 'b1769fae28105b08dff82d572e1f8cfb:649aed0ea8616585f5e139e86345a28e3f36f67aaa48fa63d98532034dfa4403'
+where email in ('joaosena.cosme@gmail.com','professor@episteme.teste','gestor@episteme.teste');
