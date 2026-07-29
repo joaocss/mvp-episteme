@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 interface Mensagem {
   autor: "aluno" | "tutor";
   texto: string;
-  fontes?: string[];
+  opcoes?: string[];
 }
 
 interface ResumoSessao { sessaoId: string; perguntas: number; iniciada: string; }
@@ -15,79 +15,64 @@ export default function PaginaTutor() {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [sessaoId, setSessaoId] = useState<string | null>(null);
+  const [temaQuestoes, setTemaQuestoes] = useState<string>("");
   const [historico, setHistorico] = useState<ResumoSessao[]>([]);
   const fimDaConversa = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    fimDaConversa.current?.scrollIntoView({ behavior: "smooth" });
-  }, [mensagens]);
+  useEffect(() => { fimDaConversa.current?.scrollIntoView({ behavior: "smooth" }); }, [mensagens]);
 
   async function carregarHistorico() {
     try {
       const r = await fetch("/api/tutor/historico");
-      if (r.ok) {
-        const d = await r.json();
-        setHistorico(d.sessoes ?? []);
-      }
-    } catch {
-      /* silencioso */
-    }
+      if (r.ok) { const d = await r.json(); setHistorico(d.sessoes ?? []); }
+    } catch { /* silencioso */ }
   }
-
-  useEffect(() => {
-    carregarHistorico();
-  }, []);
+  useEffect(() => { carregarHistorico(); }, []);
 
   async function abrirSessao(id: string) {
     try {
       const r = await fetch(`/api/tutor/conversa?sessao=${id}`);
       if (!r.ok) return;
       const d = await r.json();
-      const msgs: Mensagem[] = (d.mensagens ?? []).map((m: { autor: string; conteudo: string }) => ({
-        autor: m.autor === "aluno" ? "aluno" : "tutor",
-        texto: m.conteudo,
-      }));
-      setMensagens(msgs);
+      setMensagens((d.mensagens ?? []).map((m: { autor: string; conteudo: string }) => ({
+        autor: m.autor === "aluno" ? "aluno" : "tutor", texto: m.conteudo,
+      })));
       setSessaoId(id);
-    } catch {
-      /* silencioso */
-    }
+    } catch { /* silencioso */ }
   }
 
-  function novaConversa() {
-    setMensagens([]);
-    setSessaoId(null);
-    setPergunta("");
-  }
+  function novaConversa() { setMensagens([]); setSessaoId(null); setPergunta(""); setTemaQuestoes(""); }
 
-  async function enviar(evento: React.FormEvent) {
-    evento.preventDefault();
-    const texto = pergunta.trim();
-    if (!texto || carregando) return;
-
-    setMensagens((atual) => [...atual, { autor: "aluno", texto }]);
+  async function enviarPergunta(texto: string) {
+    const limpo = texto.trim();
+    if (!limpo || carregando) return;
+    setMensagens((atual) => [...atual, { autor: "aluno", texto: limpo }]);
     setPergunta("");
     setCarregando(true);
-
     try {
       const resposta = await fetch("/api/tutor", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pergunta: texto, sessaoId }),
+        body: JSON.stringify({ pergunta: limpo, sessaoId }),
       });
       const dados = await resposta.json();
       if (dados.sessaoId) setSessaoId(dados.sessaoId);
-      const textoTutor = dados.resposta ?? "Não consegui responder agora.";
-      setMensagens((atual) => [...atual, { autor: "tutor", texto: textoTutor }]);
+      if (dados.tema) setTemaQuestoes(dados.tema);
+      setMensagens((atual) => [...atual, {
+        autor: "tutor",
+        texto: dados.resposta ?? "Não consegui responder agora.",
+        opcoes: dados.opcoes,
+      }]);
       carregarHistorico();
     } catch {
-      setMensagens((atual) => [
-        ...atual,
-        { autor: "tutor", texto: "Tive um problema para responder. Tente novamente." },
-      ]);
+      setMensagens((atual) => [...atual, { autor: "tutor", texto: "Tive um problema para responder. Tente novamente." }]);
     } finally {
       setCarregando(false);
     }
+  }
+
+  function escolherFormato(opcao: string) {
+    enviarPergunta(`${temaQuestoes} — ${opcao}`);
   }
 
   return (
@@ -108,10 +93,8 @@ export default function PaginaTutor() {
           <ul className="mt-2 space-y-1">
             {historico.map((s) => (
               <li key={s.sessaoId}>
-                <button
-                  onClick={() => abrirSessao(s.sessaoId)}
-                  className="w-full rounded px-2 py-1 text-left text-sm hover:bg-slate-50"
-                >
+                <button onClick={() => abrirSessao(s.sessaoId)}
+                  className="w-full rounded px-2 py-1 text-left text-sm hover:bg-slate-50">
                   {s.iniciada} — {s.perguntas} pergunta(s)
                 </button>
               </li>
@@ -120,36 +103,38 @@ export default function PaginaTutor() {
         </details>
       )}
 
-      <section
-        className="mt-4 flex-1 space-y-3 overflow-y-auto rounded-lg bg-white p-4 shadow-sm"
-        role="log" aria-live="polite" aria-label="Conversa com o tutor"
-      >
-        {mensagens.length === 0 && (
-          <p className="text-slate-500">Escreva uma dúvida de matemática para começar.</p>
-        )}
+      <section className="mt-4 flex-1 space-y-3 overflow-y-auto rounded-lg bg-white p-4 shadow-sm"
+        role="log" aria-live="polite" aria-label="Conversa com o tutor">
+        {mensagens.length === 0 && <p className="text-slate-500">Escreva uma dúvida de matemática para começar.</p>}
         {mensagens.map((m, i) => (
           <div key={i} className={m.autor === "aluno" ? "text-right" : "text-left"}>
             <span className={`inline-block max-w-[85%] whitespace-pre-line rounded-lg px-3 py-2 ${
               m.autor === "aluno" ? "bg-blue-700 text-white" : "border border-slate-200 bg-slate-50 text-slate-900"}`}>
               {m.texto}
             </span>
+            {m.opcoes && m.opcoes.length > 0 && !carregando && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {m.opcoes.map((op) => (
+                  <button key={op} onClick={() => escolherFormato(op)}
+                    className="rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-sm text-blue-800 hover:bg-blue-100">
+                    {op}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ))}
         {carregando && <p className="text-slate-500">Pensando…</p>}
         <div ref={fimDaConversa} />
       </section>
 
-      <form onSubmit={enviar} className="mt-4 flex gap-2">
+      <form onSubmit={(e) => { e.preventDefault(); enviarPergunta(pergunta); }} className="mt-4 flex gap-2">
         <label htmlFor="campo-pergunta" className="sr-only">Sua pergunta de matemática</label>
-        <input
-          id="campo-pergunta" value={pergunta} onChange={(e) => setPergunta(e.target.value)}
+        <input id="campo-pergunta" value={pergunta} onChange={(e) => setPergunta(e.target.value)}
           placeholder="Escreva sua dúvida…" autoComplete="off"
-          className="flex-1 rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+          className="flex-1 rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
         <button type="submit" disabled={carregando}
-          className="rounded-md bg-blue-700 px-4 py-2 font-medium text-white hover:bg-blue-800 disabled:opacity-50">
-          Enviar
-        </button>
+          className="rounded-md bg-blue-700 px-4 py-2 font-medium text-white hover:bg-blue-800 disabled:opacity-50">Enviar</button>
       </form>
     </main>
   );
