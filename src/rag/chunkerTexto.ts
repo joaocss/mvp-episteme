@@ -1,13 +1,32 @@
-// Chunker para texto corrido de livro (PDF -> texto). Diferente do chunker por
-// secao "## Titulo - CODIGO", este quebra por paragrafo agrupando ate um
-// tamanho-alvo, com sobreposicao para nao perder contexto na borda.
+// Chunker para texto corrido de livro (PDF -> texto). Limpa ruido comum de PDF
+// (creditos de ilustracao, avisos de copyright, numeros de pagina soltos) e
+// quebra por paragrafo agrupando ate um tamanho-alvo, com sobreposicao.
 export interface ChunkTexto { ordem: number; texto: string; }
 
+const RUIDOS: RegExp[] = [
+  /reprodu[çc][aã]o proibida[^\n]*/gi,
+  /art\.?\s*184 do c[oó]digo penal[^\n]*/gi,
+  /lei\s*9\.?\s*610[^\n]*/gi,
+  /ilustraç[oõ]es?:\s*[^\n]*?(arquivo da editora|editora)/gi,
+  /arquivo da editora/gi,
+  /©[^\n]*/g,
+];
+
+export function limparRuidoPdf(texto: string): string {
+  let t = texto;
+  for (const r of RUIDOS) t = t.replace(r, " ");
+  // remove linhas que sao so numero de pagina
+  t = t.replace(/^\s*\d{1,4}\s*$/gm, " ");
+  // colapsa espacos
+  return t.replace(/[ \t]{2,}/g, " ");
+}
+
 export function chunkarTexto(texto: string, tamanhoAlvo = 900, sobreposicao = 150): ChunkTexto[] {
-  const paragrafos = texto
+  const limpo = limparRuidoPdf(texto);
+  const paragrafos = limpo
     .split(/\n\s*\n/)
     .map((p) => p.replace(/\s+/g, " ").trim())
-    .filter((p) => p.length > 40); // descarta ruido/linhas curtas
+    .filter((p) => p.length > 40);
 
   const chunks: ChunkTexto[] = [];
   let buffer = "";
@@ -15,8 +34,7 @@ export function chunkarTexto(texto: string, tamanhoAlvo = 900, sobreposicao = 15
   for (const par of paragrafos) {
     if (buffer && (buffer + " " + par).length > tamanhoAlvo) {
       chunks.push({ ordem: ordem++, texto: buffer.trim() });
-      const cauda = buffer.slice(-sobreposicao);
-      buffer = `${cauda} ${par}`;
+      buffer = `${buffer.slice(-sobreposicao)} ${par}`;
     } else {
       buffer = buffer ? `${buffer} ${par}` : par;
     }

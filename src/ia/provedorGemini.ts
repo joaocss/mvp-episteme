@@ -1,56 +1,54 @@
-// Provedores REAIS (Google Gemini) via API REST. Precisam de LLM_API_KEY /
-// EMBEDDING_API_KEY no ambiente. Ainda NAO testados ponta a ponta (sem chave
-// no ambiente de dev do Claude); a assinatura e o fluxo espelham o mock, entao
-// o pipeline nao muda ao trocar o provedor.
-
+// Provedores REAIS (Google Gemini) via API REST, autenticando pelo cabecalho
+// X-goog-api-key (formato atual). Com retentativa em 429/5xx (limite de taxa).
 import { ProvedorEmbeddings, ProvedorLlm, RespostaLlm } from "./tipos";
 
 const BASE_API = "https://generativelanguage.googleapis.com/v1beta";
+const MODELO_EMBEDDING = "text-embedding-004";
+const MODELO_LLM = "gemini-2.5-flash-lite";
+
+async function requisitar(url: string, chave: string, corpo: unknown, tentativas = 4): Promise<any> {
+  for (let i = 0; i < tentativas; i++) {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": chave },
+      body: JSON.stringify(corpo),
+    });
+    if (r.ok) return r.json();
+    if (r.status !== 429 && r.status < 500) {
+      throw new Error(`Gemini ${r.status}: ${await r.text()}`);
+    }
+    await new Promise((res) => setTimeout(res, 1500 * (i + 1))); // backoff
+  }
+  throw new Error("Gemini: excedidas as retentativas (limite de taxa).");
+}
 
 export class EmbeddingsGemini implements ProvedorEmbeddings {
-  readonly nome = "gemini-text-embedding-004";
+  readonly nome = MODELO_EMBEDDING;
   readonly dimensao = 768;
   constructor(private readonly chave = process.env.EMBEDDING_API_KEY ?? "") {}
 
   async gerar(texto: string): Promise<number[]> {
-    const url = `${BASE_API}/models/text-embedding-004:embedContent?key=${this.chave}`;
-    const resposta = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        model: "models/text-embedding-004",
-        content: { parts: [{ text: texto }] },
-      }),
-    });
-    if (!resposta.ok) throw new Error(`Embeddings falhou: ${resposta.status}`);
-    const dados = await resposta.json();
+    const dados = await requisitar(
+      `${BASE_API}/models/${MODELO_EMBEDDING}:embedContent`,
+      this.chave,
+      { model: `models/${MODELO_EMBEDDING}`, content: { parts: [{ text: texto }] } },
+    );
     return dados.embedding.values as number[];
   }
 }
 
 export class LlmGemini implements ProvedorLlm {
-  readonly nome = "gemini-2.5-flash-lite";
+  readonly nome = MODELO_LLM;
   constructor(private readonly chave = process.env.LLM_API_KEY ?? "") {}
 
   async gerar(prompt: string): Promise<RespostaLlm> {
-    const url = `${BASE_API}/models/gemini-2.5-flash-lite:generateContent?key=${this.chave}`;
-    const resposta = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 500 },
-      }),
-    });
-    if (!resposta.ok) throw new Error(`LLM falhou: ${resposta.status}`);
-    const dados = await resposta.json();
+    const dados = await requisitar(
+      `${BASE_API}/models/${MODELO_LLM}:generateContent`,
+      this.chave,
+      { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 500 } },
+    );
     const texto = dados.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
     const uso = dados.usageMetadata ?? {};
-    return {
-      texto,
-      modelo: this.nome,
-      tokensEntrada: uso.promptTokenCount,
-      tokensSaida: uso.candidatesTokenCount,
-    };
+    return { texto, modelo: this.nome, tokensEntrada: uso.promptTokenCount, tokensSaida: uso.candidatesTokenCount };
   }
 }
