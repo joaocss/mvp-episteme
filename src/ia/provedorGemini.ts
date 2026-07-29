@@ -3,7 +3,7 @@
 import { ProvedorEmbeddings, ProvedorLlm, RespostaLlm } from "./tipos";
 
 const BASE_API = "https://generativelanguage.googleapis.com/v1beta";
-const MODELO_EMBEDDING = "text-embedding-004";
+const MODELO_EMBEDDING = "gemini-embedding-001";
 const MODELO_LLM = "gemini-2.5-flash-lite";
 
 async function requisitar(url: string, chave: string, corpo: unknown, tentativas = 4): Promise<any> {
@@ -31,7 +31,7 @@ export class EmbeddingsGemini implements ProvedorEmbeddings {
     const dados = await requisitar(
       `${BASE_API}/models/${MODELO_EMBEDDING}:embedContent`,
       this.chave,
-      { model: `models/${MODELO_EMBEDDING}`, content: { parts: [{ text: texto }] } },
+      { model: `models/${MODELO_EMBEDDING}`, content: { parts: [{ text: texto }] }, outputDimensionality: this.dimensao },
     );
     return dados.embedding.values as number[];
   }
