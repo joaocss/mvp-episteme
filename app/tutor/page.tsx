@@ -12,6 +12,7 @@ export default function PaginaTutor() {
   const [pergunta, setPergunta] = useState("");
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [carregando, setCarregando] = useState(false);
+  const [sessaoId, setSessaoId] = useState<string | null>(null);
   const fimDaConversa = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,9 +32,10 @@ export default function PaginaTutor() {
       const resposta = await fetch("/api/tutor", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pergunta: texto }),
+        body: JSON.stringify({ pergunta: texto, sessaoId }),
       });
       const dados = await resposta.json();
+      if (dados.sessaoId) setSessaoId(dados.sessaoId);
       const textoTutor = dados.recusado
         ? "Não encontrei isso no material da sua turma. Vale conversar com o seu professor sobre esse tema."
         : dados.resposta ?? "Não consegui responder agora.";
