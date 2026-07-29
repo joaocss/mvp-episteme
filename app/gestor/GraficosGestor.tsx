@@ -10,12 +10,16 @@ import {
 const ROXO = "#3B2C63";
 const DOURADO = "#C79A3B";
 const ROXO_CLARO = "#7A6AA5";
+const ALERTA = "#B91C1C";
 
 interface Props {
   alunos: number;
   professores: number;
   porDia: { dia: string; total: number }[];
   ativos: { aluno: string; perguntas: number }[];
+  mediaNotas: { turma: string; media: number }[];
+  aprovacao: { turma: string; aprovados: number; reprovados: number }[];
+  evasao: { turma: string; ativos: number; inativos: number }[];
 }
 
 function Quadro({ titulo, children }: { titulo: string; children: React.ReactNode }) {
@@ -27,7 +31,7 @@ function Quadro({ titulo, children }: { titulo: string; children: React.ReactNod
   );
 }
 
-export default function GraficosGestor({ alunos, professores, porDia, ativos }: Props) {
+export default function GraficosGestor({ alunos, professores, porDia, ativos, mediaNotas, aprovacao, evasao }: Props) {
   const composicao = [
     { nome: "Alunos", valor: alunos },
     { nome: "Professores", valor: professores },
@@ -86,6 +90,58 @@ export default function GraficosGestor({ alunos, professores, porDia, ativos }: 
               <YAxis type="category" dataKey="aluno" width={110} tick={{ fontSize: 11 }} />
               <Tooltip />
               <Bar dataKey="perguntas" fill={ROXO_CLARO} radius={[0, 4, 4, 0]} name="Perguntas" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </Quadro>
+
+      <Quadro titulo="Média de notas por turma">
+        {mediaNotas.length === 0 ? (
+          <p className="text-slate-500">Ainda não há dados.</p>
+        ) : (
+          <ResponsiveContainer>
+            <BarChart data={mediaNotas} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="turma" tick={{ fontSize: 11 }} />
+              <YAxis domain={[0, 10]} allowDecimals={false} tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Bar dataKey="media" fill={ROXO} radius={[4, 4, 0, 0]} name="Média" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </Quadro>
+
+      <Quadro titulo="Aprovação por turma">
+        {aprovacao.length === 0 ? (
+          <p className="text-slate-500">Ainda não há dados.</p>
+        ) : (
+          <ResponsiveContainer>
+            <BarChart data={aprovacao} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="turma" tick={{ fontSize: 11 }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="aprovados" stackId="a" fill={ROXO} radius={[0, 0, 0, 0]} name="Aprovados" />
+              <Bar dataKey="reprovados" stackId="a" fill={ALERTA} radius={[4, 4, 0, 0]} name="Reprovados" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </Quadro>
+
+      <Quadro titulo="Evasão por turma">
+        {evasao.length === 0 ? (
+          <p className="text-slate-500">Ainda não há dados.</p>
+        ) : (
+          <ResponsiveContainer>
+            <BarChart data={evasao} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="turma" tick={{ fontSize: 11 }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="ativos" stackId="a" fill={DOURADO} radius={[0, 0, 0, 0]} name="Ativos" />
+              <Bar dataKey="inativos" stackId="a" fill={ALERTA} radius={[4, 4, 0, 0]} name={`Inativos (14d+)`} />
             </BarChart>
           </ResponsiveContainer>
         )}

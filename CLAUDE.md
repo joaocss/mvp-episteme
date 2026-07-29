@@ -100,17 +100,24 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   definir turma do aluno; desvincular professor), tabelas filtráveis com edição
   inline, gráficos com **Recharts**, migration `20260729000200_gestao_campos`
   (colunas `data_nascimento` e `disciplinas` em `usuarios`).
+- **Fase 3 — Módulo Provas:** migration `20260730000100_provas` (`provas`,
+  `questoes` com `tipo` objetiva/dissertativa por questão, `respostas`).
+  Professor: "Elaborar Prova" (`/professor/provas/nova`, assunto + nº de
+  questões objetivas/dissertativas → IA gera rascunho via RAG e já persiste em
+  `status='rascunho'`), revisão/edição inline por questão e publicação
+  (`/professor/provas/[id]`). Aluno: uma questão por vez (`/provas/[id]`),
+  botões "Feedback da Questão"/"Consultar Gabarito" (objetiva) e "Ver Passo a
+  Passo"/"Feedback da Resposta" (dissertativa, IA compara com o gabarito),
+  resposta única por questão, tela de resultado ao concluir (acertos/erros/nota
+  + feedback por questão). Pipeline de IA em `src/rag/provas.ts` (reusa
+  `LIMIAR_GROUNDING`, guardrails e `RepositorioPostgres` do tutor). Gráficos de
+  **notas/aprovação/evasão** habilitados no painel do gestor
+  (`mediaNotasPorTurma`/`taxaAprovacaoPorTurma`/`evasaoAlunos` em `src/bd/gestor.ts`;
+  evasão = sem resposta de prova nem interação com o tutor em ~14 dias).
+  `middleware.ts` protege `/provas` e `/api/provas`.
 
 ## Roadmap (ordem do brief)
 
-- **Fase 3 — Módulo Provas (§3/§4 do brief, PRÓXIMO):**
-  - Migration nova: `provas`, `questoes`, `respostas` (multi-tenant por `escola_id`).
-  - Professor: "Elaborar Prova" (assunto + nº de questões → IA gera rascunho via RAG),
-    supervisionar/editar cada questão (texto, alternativas, gabarito), publicar p/ turma.
-  - Aluno: prova objetiva uma questão por vez; botões "Feedback da Questão" e
-    "Consultar Gabarito"; prova dissertativa com "Ver Passo a Passo" e
-    "Feedback da Resposta" (IA compara com gabarito). Tudo ancorado no RAG.
-  - Habilita os gráficos de **notas/aprovação/evasão** no painel do gestor (hoje sem fonte).
 - **Fase 4 — Memória de contexto:** TTL de ~7 dias e retomar conversa mantendo contexto.
 - **Imagens nas respostas:** react-markdown/SVG quando o RAG permitir.
 - **LGPD/segurança:** adiada por decisão do João — resolver ANTES de dados reais.

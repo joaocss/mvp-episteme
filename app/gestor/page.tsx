@@ -2,7 +2,9 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { lerToken } from "../../lib/sessao";
-import { kpisGestor, perguntasPorDia, alunosMaisAtivos } from "../../src/bd/gestor";
+import {
+  kpisGestor, perguntasPorDia, alunosMaisAtivos, mediaNotasPorTurma, taxaAprovacaoPorTurma, evasaoAlunos,
+} from "../../src/bd/gestor";
 import { Marca } from "../componentes/Marca";
 import { variantesBotao } from "../componentes/ui/Botao";
 import GraficosGestor from "./GraficosGestor";
@@ -24,10 +26,13 @@ export default async function PaginaGestor() {
   const sessao = lerToken(armazem.get("sessao_aluno")?.value);
   if (!sessao || (sessao.papel !== "gestor" && sessao.papel !== "admin")) redirect("/login");
 
-  const [kpis, porDia, ativos] = await Promise.all([
+  const [kpis, porDia, ativos, mediaNotas, aprovacao, evasao] = await Promise.all([
     kpisGestor(sessao.escolaId),
     perguntasPorDia(sessao.escolaId),
     alunosMaisAtivos(sessao.escolaId),
+    mediaNotasPorTurma(sessao.escolaId),
+    taxaAprovacaoPorTurma(sessao.escolaId),
+    evasaoAlunos(sessao.escolaId),
   ]);
 
   return (
@@ -66,6 +71,9 @@ export default async function PaginaGestor() {
             professores={kpis.professores}
             porDia={porDia}
             ativos={ativos}
+            mediaNotas={mediaNotas}
+            aprovacao={aprovacao}
+            evasao={evasao}
           />
         </div>
       </div>

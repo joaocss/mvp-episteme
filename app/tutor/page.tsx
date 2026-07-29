@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Marca } from "../componentes/Marca";
 
 interface Mensagem {
@@ -82,6 +83,9 @@ export default function PaginaTutor() {
         compacto
         acoes={
           <>
+            <Link href="/provas" className="min-h-[44px] text-sm font-medium text-roxo hover:underline">
+              Provas
+            </Link>
             <button onClick={novaConversa} className="min-h-[44px] text-sm font-medium text-roxo hover:underline">
               Nova conversa
             </button>

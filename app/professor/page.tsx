@@ -38,6 +38,7 @@ export default async function PaginaProfessor() {
         <h1 className="text-2xl font-bold">Painel do Professor — 6º ano</h1>
         <div className="flex items-center gap-4">
           <a href="/professor/planos" className="text-sm text-blue-700 hover:underline">Planejamento</a>
+          <a href="/professor/provas" className="text-sm text-blue-700 hover:underline">Provas</a>
           <a href="/api/professor/export" className="text-sm text-blue-700 hover:underline">Exportar CSV</a>
           <form action="/auth/sair" method="post">
             <button type="submit" className="text-sm text-slate-500 hover:text-slate-800">Sair</button>

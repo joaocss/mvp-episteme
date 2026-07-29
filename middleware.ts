@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 // Rotas que exigem sessao. O RBAC por papel e validado em cada pagina/rota.
-const PROTEGIDAS = ["/paineis", "/dashboard", "/tutor", "/api/tutor", "/professor", "/gestor"];
+const PROTEGIDAS = ["/paineis", "/dashboard", "/tutor", "/api/tutor", "/professor", "/gestor", "/provas", "/api/provas"];
 
 export function middleware(requisicao: NextRequest) {
   const temSessao = requisicao.cookies.has("sessao_aluno");
@@ -22,5 +22,7 @@ export const config = {
     "/api/tutor/:path*",
     "/professor/:path*",
     "/gestor/:path*",
+    "/provas/:path*",
+    "/api/provas/:path*",
   ],
 };

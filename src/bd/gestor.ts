@@ -53,3 +53,68 @@ export async function alunosMaisAtivos(escolaId: string, limite = 8): Promise<Al
   );
   return rows.map((r) => ({ aluno: r.aluno, perguntas: Number(r.perguntas) || 0 }));
 }
+
+// ------------------------------------------------------- Modulo de Provas
+
+export interface MediaNotaTurma { turma: string; media: number; }
+
+export async function mediaNotasPorTurma(escolaId: string): Promise<MediaNotaTurma[]> {
+  const { rows } = await pool.query(
+    `select t.nome as turma, avg(r.nota) as media
+     from respostas r
+     join questoes q on q.id = r.questao_id
+     join provas p on p.id = q.prova_id
+     join turmas t on t.id = p.turma_id
+     where r.escola_id = $1 and p.status in ('publicada', 'encerrada') and r.nota is not null
+     group by t.nome order by t.nome`,
+    [escolaId],
+  );
+  return rows.map((r) => ({ turma: r.turma, media: Number(Number(r.media).toFixed(2)) || 0 }));
+}
+
+export interface AprovacaoTurma { turma: string; aprovados: number; reprovados: number; }
+
+export async function taxaAprovacaoPorTurma(escolaId: string, limiar = 6): Promise<AprovacaoTurma[]> {
+  const { rows } = await pool.query(
+    `with media_aluno as (
+       select t.id as turma_id, t.nome as turma, r.aluno_id, avg(r.nota) as media
+       from respostas r
+       join questoes q on q.id = r.questao_id
+       join provas p on p.id = q.prova_id
+       join turmas t on t.id = p.turma_id
+       where r.escola_id = $1 and p.status in ('publicada', 'encerrada') and r.nota is not null
+       group by t.id, t.nome, r.aluno_id
+     )
+     select turma,
+       count(*) filter (where media >= $2) as aprovados,
+       count(*) filter (where media < $2) as reprovados
+     from media_aluno
+     group by turma order by turma`,
+    [escolaId, limiar],
+  );
+  return rows.map((r) => ({ turma: r.turma, aprovados: Number(r.aprovados) || 0, reprovados: Number(r.reprovados) || 0 }));
+}
+
+export interface EvasaoTurma { turma: string; ativos: number; inativos: number; }
+
+export async function evasaoAlunos(escolaId: string, dias = 14): Promise<EvasaoTurma[]> {
+  const { rows } = await pool.query(
+    `with atividade as (
+       select m.turma_id, m.aluno_id,
+         greatest(
+           coalesce((select max(r.respondida_em) from respostas r where r.aluno_id = m.aluno_id and r.escola_id = $1), 'epoch'::timestamptz),
+           coalesce((select max(s.iniciada_em) from sessoes_tutor s where s.aluno_id = m.aluno_id and s.escola_id = $1), 'epoch'::timestamptz)
+         ) as ultima_atividade
+       from matriculas m
+       where m.escola_id = $1
+     )
+     select t.nome as turma,
+       count(*) filter (where a.ultima_atividade >= now() - make_interval(days => $2)) as ativos,
+       count(*) filter (where a.ultima_atividade < now() - make_interval(days => $2)) as inativos
+     from atividade a
+     join turmas t on t.id = a.turma_id
+     group by t.nome order by t.nome`,
+    [escolaId, dias],
+  );
+  return rows.map((r) => ({ turma: r.turma, ativos: Number(r.ativos) || 0, inativos: Number(r.inativos) || 0 }));
+}
