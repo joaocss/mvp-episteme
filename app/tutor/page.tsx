@@ -70,7 +70,7 @@ export default function PaginaTutor() {
               className={`inline-block max-w-[85%] rounded-lg px-3 py-2 ${
                 m.autor === "aluno"
                   ? "bg-blue-700 text-white"
-                  : "border border-slate-200 bg-slate-50 text-slate-900"
+                  : "border border-slate-200 bg-slate-50 text-slate-900 whitespace-pre-line"
               }`}
             >
               {m.texto}
