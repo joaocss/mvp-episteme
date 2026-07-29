@@ -54,3 +54,19 @@ export async function criarAluno(email: string, nome: string): Promise<Aluno> {
   );
   return { id: alunoId, escolaId, nome };
 }
+
+export interface Usuario {
+  id: string;
+  escolaId: string;
+  papel: string;
+  nome: string;
+}
+
+export async function buscarUsuarioPorEmail(email: string): Promise<Usuario | null> {
+  const { rows } = await pool.query(
+    `select id, escola_id, papel, nome from usuarios where lower(email) = lower($1) limit 1`,
+    [email],
+  );
+  if (!rows[0]) return null;
+  return { id: rows[0].id, escolaId: rows[0].escola_id, papel: rows[0].papel, nome: rows[0].nome };
+}

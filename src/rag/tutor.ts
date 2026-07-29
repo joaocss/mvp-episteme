@@ -1,11 +1,11 @@
-// Pipeline do tutor: guardrail de entrada -> embedding -> busca -> grounding
-// -> montagem do prompt -> LLM -> guardrail de saida. Recebe as dependencias
-// por injecao (mock ou real), entao a logica e a mesma em dev e producao.
-
+// Pipeline do tutor: guardrail de entrada -> (minimiza PII) -> embedding ->
+// busca -> grounding -> prompt -> LLM -> guardrail de saida.
 import { ProvedorEmbeddings, ProvedorLlm, RepositorioTrechos, TrechoRecuperado } from "../ia/tipos";
-import { guardrailEntrada, guardrailSaida, EventoGuardrail } from "../ia/guardrails";
+import {
+  guardrailEntrada, guardrailSaida, minimizarPii, EventoGuardrail,
+  MENSAGEM_SEGURANCA, MENSAGEM_SEM_BASE,
+} from "../ia/guardrails";
 
-// Abaixo deste limiar de similaridade, o tutor RECUSA em vez de inventar.
 export const LIMIAR_GROUNDING = 0.12;
 const TOP_K = 3;
 
@@ -14,8 +14,7 @@ export const REGRAS_SISTEMA =
   "adequada a uma crianca de 11 anos, passo a passo. Use APENAS o conteudo " +
   "fornecido. Se a resposta nao estiver no conteudo, diga que nao encontrou no " +
   "material e sugira falar com o professor. Nunca entregue apenas a resposta " +
-  "final de uma tarefa avaliativa. Jamais use linguagem punitiva ou " +
-  "humilhante (Lei 13.010).";
+  "final de uma tarefa avaliativa. Jamais use linguagem punitiva ou humilhante.";
 
 export interface Dependencias {
   embeddings: ProvedorEmbeddings;
@@ -51,21 +50,23 @@ export async function responder(
   const eventos = guardrailEntrada(pergunta);
   const base: ResultadoTutor = { recusado: false, fontes: [], eventos, telemetria: { melhorScore: 0 } };
 
-  if (eventos.some((e) => e.acao === "bloqueado")) {
-    return { ...base, recusado: true, motivo: "guardrail de entrada bloqueou a mensagem" };
+  // Sinal de risco -> acolhe e encaminha a um adulto (nao segue com o tutor).
+  if (eventos.some((e) => e.categoria === "seguranca_infantil")) {
+    return { ...base, recusado: true, motivo: "seguranca_infantil", resposta: MENSAGEM_SEGURANCA };
   }
 
-  const vetor = await dep.embeddings.gerar(pergunta);
+  const perguntaSegura = minimizarPii(pergunta); // nao envia PII ao LLM
+  const vetor = await dep.embeddings.gerar(perguntaSegura);
   const fontes = await dep.repositorio.buscar(escolaId, vetor, TOP_K);
   const melhorScore = fontes[0]?.score ?? 0;
   base.telemetria.melhorScore = Number(melhorScore.toFixed(3));
   base.fontes = fontes;
 
   if (melhorScore < LIMIAR_GROUNDING) {
-    return { ...base, recusado: true, motivo: "sem base no material (grounding)" };
+    return { ...base, recusado: true, motivo: "sem_base", resposta: MENSAGEM_SEM_BASE };
   }
 
-  const prompt = montarPrompt(pergunta, fontes);
+  const prompt = montarPrompt(perguntaSegura, fontes);
   const saidaLlm = await dep.llm.gerar(prompt);
   const saida = guardrailSaida(saidaLlm.texto);
 

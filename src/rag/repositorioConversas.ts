@@ -57,7 +57,7 @@ export async function registrarGuardrails(
       `insert into guardrail_eventos
          (escola_id, interacao_id, categoria, acao, severidade, detalhe, trace_id)
        values ($1,$2,$3,$4,$5,$6,$7)`,
-      [escolaId, interacaoId, e.categoria, e.acao, "media", e.detalhe, traceId],
+      [escolaId, interacaoId, e.categoria, e.acao, e.severidade, e.detalhe, traceId],
     );
   }
 }

@@ -1,21 +1,21 @@
-// Sessao simples e assinada (HMAC) guardada em cookie. Temporario, para
-// desenvolvimento — trocar por auth real (Supabase/OAuth) mais adiante.
+// Sessao simples e assinada (HMAC) em cookie. Temporario, para desenvolvimento.
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 const SEGREDO = process.env.SESSION_SECRET ?? "dev-secreto-trocar-em-producao";
 
-export interface SessaoAluno {
-  alunoId: string;
+export interface SessaoUsuario {
+  usuarioId: string;
   escolaId: string;
+  papel: string;
 }
 
-export function criarToken(sessao: SessaoAluno): string {
+export function criarToken(sessao: SessaoUsuario): string {
   const dados = Buffer.from(JSON.stringify(sessao)).toString("base64url");
   const assinatura = createHmac("sha256", SEGREDO).update(dados).digest("base64url");
   return `${dados}.${assinatura}`;
 }
 
-export function lerToken(token: string | undefined): SessaoAluno | null {
+export function lerToken(token: string | undefined): SessaoUsuario | null {
   if (!token) return null;
   const [dados, assinatura] = token.split(".");
   if (!dados || !assinatura) return null;

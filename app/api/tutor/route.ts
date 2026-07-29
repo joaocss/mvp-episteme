@@ -30,6 +30,7 @@ export async function POST(requisicao: Request) {
   const armazem = await cookies();
   const sessao = lerToken(armazem.get("sessao_aluno")?.value);
   if (!sessao) return NextResponse.json({ erro: "nao autenticado" }, { status: 401 });
+  if (sessao.papel !== "aluno") return NextResponse.json({ erro: "acesso restrito a alunos" }, { status: 403 });
 
   let corpo: { pergunta?: unknown; sessaoId?: unknown };
   try {
@@ -43,7 +44,7 @@ export async function POST(requisicao: Request) {
   }
 
   const traceId = randomUUID();
-  const { escolaId, alunoId } = sessao;
+  const { escolaId, usuarioId: alunoId } = sessao;
 
   // Sessao de conversa (o chat reusa o id retornado).
   let sessaoId = typeof corpo.sessaoId === "string" && UUID.test(corpo.sessaoId) ? corpo.sessaoId : "";

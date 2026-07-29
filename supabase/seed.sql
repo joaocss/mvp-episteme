@@ -22,3 +22,14 @@ insert into matriculas (id, escola_id, aluno_id, turma_id) values
   ('00000000-0000-0000-0000-000000000040','00000000-0000-0000-0000-000000000001',
    '00000000-0000-0000-0000-000000000030','00000000-0000-0000-0000-000000000020')
   on conflict (id) do nothing;
+
+-- Professor de teste (entra pelo mesmo login por email).
+insert into usuarios (id, escola_id, papel, nome, email) values
+  ('00000000-0000-0000-0000-000000000050','00000000-0000-0000-0000-000000000001',
+   'professor','Professora (teste)','professor@episteme.teste')
+  on conflict (id) do nothing;
+
+insert into professores_turmas (id, escola_id, professor_id, turma_id, disciplina) values
+  ('00000000-0000-0000-0000-000000000060','00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000050','00000000-0000-0000-0000-000000000020','matematica')
+  on conflict (id) do nothing;

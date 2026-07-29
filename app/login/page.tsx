@@ -21,7 +21,8 @@ export default function PaginaLogin() {
         body: JSON.stringify({ email, nome }),
       });
       if (r.ok) {
-        window.location.href = "/tutor";
+        const d = await r.json().catch(() => ({}));
+        window.location.href = d.papel === "professor" ? "/professor" : "/tutor";
       } else {
         const d = await r.json().catch(() => ({}));
         setErro(d.erro ?? "Não foi possível continuar.");

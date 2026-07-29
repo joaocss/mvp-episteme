@@ -36,9 +36,7 @@ export default function PaginaTutor() {
       });
       const dados = await resposta.json();
       if (dados.sessaoId) setSessaoId(dados.sessaoId);
-      const textoTutor = dados.recusado
-        ? "Não encontrei isso no material da sua turma. Vale conversar com o seu professor sobre esse tema."
-        : dados.resposta ?? "Não consegui responder agora.";
+      const textoTutor = dados.resposta ?? "Não consegui responder agora.";
       const fontes: string[] | undefined = dados.fontes?.map(
         (f: { metadados?: { codigo_bncc?: string } }) => f.metadados?.codigo_bncc ?? "",
       );

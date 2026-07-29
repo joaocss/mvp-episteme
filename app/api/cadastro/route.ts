@@ -10,9 +10,11 @@ export async function POST(requisicao: Request) {
     return NextResponse.json({ erro: "Informe nome e email." }, { status: 400 });
   }
   const aluno = await criarAluno(String(email), String(nome));
-  const resposta = NextResponse.json({ ok: true, nome: aluno.nome });
-  resposta.cookies.set("sessao_aluno", criarToken({ alunoId: aluno.id, escolaId: aluno.escolaId }), {
-    httpOnly: true, path: "/", sameSite: "lax", maxAge: 604800,
-  });
+  const resposta = NextResponse.json({ ok: true, papel: "aluno", nome: aluno.nome });
+  resposta.cookies.set(
+    "sessao_aluno",
+    criarToken({ usuarioId: aluno.id, escolaId: aluno.escolaId, papel: "aluno" }),
+    { httpOnly: true, path: "/", sameSite: "lax", maxAge: 604800 },
+  );
   return resposta;
 }
