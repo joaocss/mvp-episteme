@@ -20,6 +20,7 @@ function criarRepositorio(): RepositorioTrechos {
     : new RepositorioSupabase(criarClienteBackend());
 }
 const USAR_MOCK = process.env.USAR_MOCK === "1";
+console.log(USAR_MOCK ? ">>> MODO: MOCK (Gemini desligado) <<<" : ">>> MODO: REAL (Gemini) <<<");
 
 async function principal() {
   const [, , escolaId, ...resto] = process.argv;
