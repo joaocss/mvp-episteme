@@ -18,6 +18,10 @@ export class EmbeddingsMock implements ProvedorEmbeddings {
     return vetor;
   }
 
+  async gerarLote(textos: string[]): Promise<number[][]> {
+    return Promise.all(textos.map((t) => this.gerar(t)));
+  }
+
   private hash(token: string): number {
     let h = 2166136261;
     for (let i = 0; i < token.length; i++) {

@@ -5,6 +5,8 @@ export interface ProvedorEmbeddings {
   readonly nome: string;
   readonly dimensao: number;
   gerar(texto: string): Promise<number[]>;
+  // Opcional: embeddar varios textos numa unica chamada (evita rate limit).
+  gerarLote?(textos: string[]): Promise<number[][]>;
 }
 
 export interface RespostaLlm {
