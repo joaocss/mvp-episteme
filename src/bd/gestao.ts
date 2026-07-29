@@ -1,8 +1,7 @@
 // Gestao (cadastro) — usado pelo gestor: turmas, professores, alunos e vinculos.
-import pg from "pg";
+import { pool } from "./pool";
 import { gerarHashSenha } from "../../lib/senha";
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 export async function criarTurma(escolaId: string, nome: string, anoLetivo: number, serie: string): Promise<void> {
   await pool.query(

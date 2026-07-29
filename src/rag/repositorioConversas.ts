@@ -1,10 +1,9 @@
 // Persistencia das conversas do tutor (Postgres direto): sessoes, interacoes,
 // fontes usadas, eventos de guardrail e auditoria. Base da Fase 2.
-import pg from "pg";
+import { pool } from "../bd/pool";
 import { TrechoRecuperado } from "../ia/tipos";
 import { EventoGuardrail } from "../ia/guardrails";
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 export async function criarSessao(escolaId: string, alunoId: string): Promise<string> {
   const { rows } = await pool.query(

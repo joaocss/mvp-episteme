@@ -1,11 +1,10 @@
 // Modulo de planejamento: gera plano de ensino com IA a partir do livro (RAG),
 // da BNCC e do perfil da turma (incluindo alunos atipicos).
-import pg from "pg";
+import { pool } from "../bd/pool";
 import { criarEmbeddings } from "../ia/fabricaEmbeddings";
 import { criarLlm } from "../ia/fabricaLlm";
 import { RepositorioPostgres } from "./repositorioPostgres";
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 export interface PlanoEnsinoResumo {
   id: string; disciplina: string; turma: string; anoLetivo: number; criadoEm: string;

@@ -1,8 +1,7 @@
 // Consulta e cadastro de usuarios/alunos (Postgres direto), com senha (piloto).
-import pg from "pg";
+import { pool } from "./pool";
 import { gerarHashSenha } from "../../lib/senha";
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const ESCOLA_DEMO = "00000000-0000-0000-0000-000000000001";
 const TURMA_6ANO = "00000000-0000-0000-0000-000000000020";
 

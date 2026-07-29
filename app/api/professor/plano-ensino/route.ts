@@ -4,7 +4,7 @@ import { lerToken } from "../../../../lib/sessao";
 import { gerarPlanoEnsino } from "../../../../src/rag/planejamento";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 export async function POST() {
   const armazem = await cookies();

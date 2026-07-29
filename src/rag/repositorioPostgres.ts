@@ -2,7 +2,7 @@
 // administrativos (ingestao) e CLIs. Conecta como usuario 'postgres', que tem
 // direito de escrita — evita depender do formato de chave do PostgREST. O RLS
 // permanece ativo; o app (Next.js) continuara usando o cliente com JWT do usuario.
-import pg from "pg";
+import { pool } from "../bd/pool";
 import { ChunkParaInserir, RepositorioTrechos, TrechoRecuperado } from "../ia/tipos";
 
 function vetorLiteral(v: number[]): string {
@@ -10,15 +10,10 @@ function vetorLiteral(v: number[]): string {
 }
 
 export class RepositorioPostgres implements RepositorioTrechos {
-  private readonly pool: pg.Pool;
-
-  constructor(connectionString = process.env.DATABASE_URL) {
-    if (!connectionString) throw new Error("Defina DATABASE_URL no .env.local");
-    this.pool = new pg.Pool({ connectionString });
-  }
+  constructor() {}
 
   async inserir(escolaId: string, chunks: ChunkParaInserir[]): Promise<void> {
-    const cliente = await this.pool.connect();
+    const cliente = await pool.connect();
     try {
       await cliente.query("begin");
       for (const c of chunks) {
@@ -39,7 +34,7 @@ export class RepositorioPostgres implements RepositorioTrechos {
   }
 
   async buscar(escolaId: string, consulta: number[], limite: number): Promise<TrechoRecuperado[]> {
-    const { rows } = await this.pool.query(
+    const { rows } = await pool.query(
       "select chunk_id, texto, metadados, score from buscar_trechos($1, $2::vector, $3)",
       [escolaId, vetorLiteral(consulta), limite],
     );
@@ -52,11 +47,11 @@ export class RepositorioPostgres implements RepositorioTrechos {
   }
 
   async classificarBncc(consulta: number[]): Promise<string | null> {
-    const { rows } = await this.pool.query(`select buscar_bncc($1::vector) as codigo`, [vetorLiteral(consulta)]);
+    const { rows } = await pool.query(`select buscar_bncc($1::vector) as codigo`, [vetorLiteral(consulta)]);
     return rows[0]?.codigo ?? null;
   }
 
   async encerrar(): Promise<void> {
-    await this.pool.end();
+    /* pool compartilhado: nao encerrar aqui */
   }
 }

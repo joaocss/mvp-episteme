@@ -1,8 +1,7 @@
 // Consultas do painel do professor (Postgres direto), restritas aos alunos das
 // turmas em que o professor leciona.
-import pg from "pg";
+import { pool } from "./pool";
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 export interface EstatProfessor {
   totalAlunos: number;

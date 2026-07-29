@@ -1,7 +1,6 @@
 // Histórico de conversas do próprio aluno (Postgres direto).
-import pg from "pg";
+import { pool } from "./pool";
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 export interface ResumoSessaoAluno { sessaoId: string; perguntas: number; iniciada: string; }
 

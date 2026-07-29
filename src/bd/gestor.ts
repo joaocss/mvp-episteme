@@ -1,7 +1,6 @@
 // Consultas do painel gestor (diretor/coordenador) — escopo da escola.
-import pg from "pg";
+import { pool } from "./pool";
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 export interface KpisGestor {
   alunos: number; professores: number; sessoes: number; perguntas: number; alertas: number;

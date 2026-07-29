@@ -1,6 +1,6 @@
 // Gera embeddings das habilidades BNCC (competencias_bncc) para a classificacao.
 // Uso:  tsx src/rag/ingestaoBncc.ts
-import pg from "pg";
+import { pool } from "../bd/pool";
 import { carregarEnvLocal } from "../bd/ambiente";
 import { criarEmbeddings } from "../ia/fabricaEmbeddings";
 
@@ -9,7 +9,6 @@ carregarEnvLocal();
 function vetorLiteral(v: number[]): string { return `[${v.join(",")}]`; }
 
 async function principal() {
-  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
   const embeddings = criarEmbeddings();
   console.log(`Embeddings: ${embeddings.nome}`);
   const { rows } = await pool.query(`select codigo, descricao from competencias_bncc order by codigo`);
