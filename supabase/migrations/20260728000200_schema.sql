@@ -9,7 +9,7 @@ create extension if not exists "pgcrypto";  -- gen_random_uuid()
 
 -- Papeis de usuario no sistema
 do $$ begin
-  create type papel_usuario as enum ('admin', 'professor', 'aluno', 'responsavel');
+  create type papel_usuario as enum ('admin', 'professor', 'aluno', 'responsavel', 'gestor');
 exception when duplicate_object then null; end $$;
 
 -- Raiz do tenant: uma linha por escola cliente
