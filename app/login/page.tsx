@@ -34,11 +34,11 @@ export default function PaginaLogin() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100 p-4">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#F3EFDD] to-slate-100 p-4">
       <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-xl">
-        <div className="bg-blue-700 px-6 py-6 text-white">
-          <h1 className="text-xl font-bold">Episteme</h1>
-          <p className="text-sm text-blue-100">Tutor de Matemática — 6º ano</p>
+        <div className="flex flex-col items-center border-b border-slate-100 px-6 py-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-episteme.svg" alt="Episteme — inteligência que ensina a pensar" className="h-14 w-auto" />
         </div>
         <form onSubmit={enviar} className="flex flex-col gap-3 p-6">
           <p className="text-sm text-slate-600">
@@ -48,26 +48,26 @@ export default function PaginaLogin() {
             <div>
               <label htmlFor="nome" className="block text-sm font-medium text-slate-700">Nome</label>
               <input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} required
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7a6aa5]" />
             </div>
           )}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-slate-700">Email</label>
             <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7a6aa5]" />
           </div>
           <div>
             <label htmlFor="senha" className="block text-sm font-medium text-slate-700">Senha</label>
             <input id="senha" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7a6aa5]" />
           </div>
           {erro && <p className="text-sm text-red-600" role="alert">{erro}</p>}
           <button type="submit" disabled={enviando}
-            className="mt-1 rounded-lg bg-blue-700 px-4 py-2.5 font-medium text-white transition hover:bg-blue-800 disabled:opacity-50">
+            className="mt-1 rounded-lg bg-[#3B2C63] px-4 py-2.5 font-medium text-white transition hover:bg-[#2f2350] disabled:opacity-50">
             {modo === "entrar" ? "Entrar" : "Cadastrar"}
           </button>
           <button type="button" onClick={() => { setModo(modo === "entrar" ? "cadastrar" : "entrar"); setErro(""); }}
-            className="text-sm text-blue-700 hover:underline">
+            className="text-sm text-[#3B2C63] hover:underline">
             {modo === "entrar" ? "Não tem conta? Cadastre-se" : "Já tem conta? Entrar"}
           </button>
         </form>

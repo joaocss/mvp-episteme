@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" role="img" aria-label="Episteme">
+  <rect x="8" y="8" width="124" height="124" rx="30" fill="#3B2C63"/>
+  <text x="44" y="104" font-family="Georgia, 'Times New Roman', serif" font-size="88" font-weight="700" fill="#FFFFFF">E</text>
+  <g transform="translate(100,108)">
+    <path d="M0,-18 L5,0 L0,18 L-5,0 Z" fill="#C79A3B"/>
+    <path d="M-18,0 L0,-5 L18,0 L0,5 Z" fill="#C79A3B"/>
+    <circle cx="0" cy="0" r="5" fill="#3B2C63" stroke="#C79A3B" stroke-width="2.5"/>
+  </g>
+</svg>
