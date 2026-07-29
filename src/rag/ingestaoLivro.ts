@@ -1,11 +1,10 @@
 // Ingestao de um livro (texto) para o banco, com embeddings EM LOTE.
 // Uso:  tsx src/rag/ingestaoLivro.ts <caminho_txt> <escolaId> <materialId>
-// Env:  NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, EMBEDDING_API_KEY, DATABASE_URL
-// Sem chave do Gemini (embedding mock 768d): USAR_MOCK=1
+// Provedor: USAR_MOCK=1 | EMBEDDING_PROVEDOR=ollama | (padrao Gemini)
+// Free tier do Gemini: use PAUSA_LOTE_MS=60000 e TAM_LOTE menor, ou prefira Ollama.
 import { readFileSync } from "node:fs";
 import { carregarEnvLocal } from "../bd/ambiente";
-import { EmbeddingsGemini } from "../ia/provedorGemini";
-import { EmbeddingsMock } from "../ia/provedorMock";
+import { criarEmbeddings } from "../ia/fabricaEmbeddings";
 import { ProvedorEmbeddings, ChunkParaInserir, RepositorioTrechos } from "../ia/tipos";
 import { RepositorioSupabase } from "./repositorioSupabase";
 import { RepositorioPostgres } from "./repositorioPostgres";
@@ -14,12 +13,8 @@ import { chunkarTexto } from "./chunkerTexto";
 
 carregarEnvLocal();
 const USAR_MOCK = process.env.USAR_MOCK === "1";
-console.log(USAR_MOCK ? ">>> MODO: MOCK (Gemini desligado) <<<" : ">>> MODO: REAL (Gemini) <<<");
-const TAM_LOTE = 100; // embeddings por chamada (batchEmbedContents)
-
-function criarEmbeddings(): ProvedorEmbeddings {
-  return USAR_MOCK ? new EmbeddingsMock(768) : new EmbeddingsGemini();
-}
+const TAM_LOTE = Number(process.env.TAM_LOTE ?? 100);
+const PAUSA_LOTE_MS = Number(process.env.PAUSA_LOTE_MS ?? 0);
 
 function criarRepositorio(): RepositorioTrechos {
   return process.env.DATABASE_URL
@@ -40,10 +35,10 @@ async function principal() {
   }
   const embeddings = criarEmbeddings();
   const repo = criarRepositorio();
-  console.log(`Provedor de embeddings: ${embeddings.nome}${USAR_MOCK ? " (MOCK)" : ""}`);
+  console.log(`>>> Embeddings: ${embeddings.nome}${USAR_MOCK ? " (MOCK)" : ""} | lote=${TAM_LOTE} pausa=${PAUSA_LOTE_MS}ms <<<`);
 
   const chunks = chunkarTexto(readFileSync(caminho, "utf-8"));
-  console.log(`Chunks: ${chunks.length}. Gravando em lotes de ${TAM_LOTE}...`);
+  console.log(`Chunks: ${chunks.length}. Gravando...`);
 
   let feitos = 0;
   for (let i = 0; i < chunks.length; i += TAM_LOTE) {
@@ -59,6 +54,9 @@ async function principal() {
     await repo.inserir(escolaId, paraInserir);
     feitos += grupo.length;
     console.log(`  gravados ${feitos}/${chunks.length}`);
+    if (PAUSA_LOTE_MS > 0 && i + TAM_LOTE < chunks.length) {
+      await new Promise((res) => setTimeout(res, PAUSA_LOTE_MS));
+    }
   }
   console.log(`Concluido: ${feitos} trechos ingeridos.`);
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { responder, Dependencias } from "../../../src/rag/tutor";
-import { EmbeddingsGemini, LlmGemini } from "../../../src/ia/provedorGemini";
+import { LlmGemini } from "../../../src/ia/provedorGemini";
+import { criarEmbeddings } from "../../../src/ia/fabricaEmbeddings";
 import { RepositorioPostgres } from "../../../src/rag/repositorioPostgres";
 
 // pg exige runtime Node (nao edge). Next carrega .env.local automaticamente.
@@ -15,7 +16,7 @@ let dependencias: Dependencias | null = null;
 function obterDependencias(): Dependencias {
   if (!dependencias) {
     dependencias = {
-      embeddings: new EmbeddingsGemini(),
+      embeddings: criarEmbeddings(),
       llm: new LlmGemini(),
       repositorio: new RepositorioPostgres(),
     };

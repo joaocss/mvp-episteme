@@ -2,8 +2,9 @@
 // Uso:  tsx src/rag/perguntar.ts <escolaId> "sua pergunta"
 // Para testar SEM chave do Gemini: USAR_MOCK=1
 import { carregarEnvLocal } from "../bd/ambiente";
-import { EmbeddingsGemini, LlmGemini } from "../ia/provedorGemini";
-import { EmbeddingsMock, LlmMock } from "../ia/provedorMock";
+import { LlmGemini } from "../ia/provedorGemini";
+import { criarEmbeddings } from "../ia/fabricaEmbeddings";
+import { LlmMock } from "../ia/provedorMock";
 import { RepositorioSupabase } from "./repositorioSupabase";
 import { RepositorioPostgres } from "./repositorioPostgres";
 import { RepositorioTrechos } from "../ia/tipos";
@@ -30,7 +31,7 @@ async function principal() {
     process.exit(1);
   }
   const dep: Dependencias = {
-    embeddings: USAR_MOCK ? new EmbeddingsMock(768) : new EmbeddingsGemini(),
+    embeddings: criarEmbeddings(),
     llm: USAR_MOCK ? new LlmMock() : new LlmGemini(),
     repositorio: criarRepositorio(),
   };
