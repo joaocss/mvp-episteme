@@ -75,7 +75,7 @@ create table if not exists materiais_fonte (
 );
 
 -- Trechos vetorizados para o RAG.
--- Dimensao 1536 = text-embedding-3-small (OpenAI). Ajuste conforme o provedor.
+-- Dimensao 768 = text-embedding-004 (Gemini). Ajuste conforme o provedor.
 create table if not exists material_chunks (
   id            uuid primary key default gen_random_uuid(),
   escola_id     uuid not null references escolas(id) on delete cascade,
@@ -83,7 +83,7 @@ create table if not exists material_chunks (
   ordem         int  not null,
   texto         text not null,
   metadados     jsonb not null default '{}'::jsonb,
-  embedding     vector(1536),
+  embedding     vector(768),
   criado_em     timestamptz not null default now()
 );
 

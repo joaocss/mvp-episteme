@@ -5,7 +5,7 @@
 -- =====================================================================
 create or replace function buscar_trechos(
   p_escola_id uuid,
-  p_consulta  vector(1536),
+  p_consulta  vector(768),
   p_limite    int default 5
 )
 returns table (
