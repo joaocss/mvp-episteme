@@ -34,7 +34,7 @@ export class EmbeddingsMock implements ProvedorEmbeddings {
 
 export class LlmMock implements ProvedorLlm {
   readonly nome = "mock-llm";
-  async gerar(prompt: string): Promise<RespostaLlm> {
+  async gerar(prompt: string, _opcoes?: { maxTokens?: number }): Promise<RespostaLlm> {
     // Nao ha modelo de verdade: devolve um texto que confirma que o pipeline
     // montou o contexto corretamente.
     const trechoContexto = (prompt.split("### CONTEUDO DO MATERIAL (fonte)")[1] ?? "")

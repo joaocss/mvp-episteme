@@ -43,3 +43,16 @@ insert into usuarios (id, escola_id, papel, nome, email) values
 -- Senha padrao 'episteme123' para todos os usuarios de teste.
 update usuarios set senha_hash = 'b1769fae28105b08dff82d572e1f8cfb:649aed0ea8616585f5e139e86345a28e3f36f67aaa48fa63d98532034dfa4403'
  where email in ('joaosena.cosme@gmail.com','professor@episteme.teste','gestor@episteme.teste');
+
+-- Alunos de teste com atipicidades (para o modulo de planejamento).
+insert into usuarios (id, escola_id, papel, nome, email, atipicidades, adaptacoes) values
+  ('00000000-0000-0000-0000-000000000080','00000000-0000-0000-0000-000000000001','aluno','Ana (teste)','ana@episteme.teste',
+   '["TDAH","Dislexia"]','["Mais tempo para atividades","Material visual"]'),
+  ('00000000-0000-0000-0000-000000000081','00000000-0000-0000-0000-000000000001','aluno','Maria (teste)','maria@episteme.teste',
+   '["Autismo Nível 1"]','["Rotina estruturada","Evitar mudanças bruscas"]')
+  on conflict (id) do nothing;
+
+insert into matriculas (id, escola_id, aluno_id, turma_id) values
+  ('00000000-0000-0000-0000-000000000090','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000080','00000000-0000-0000-0000-000000000020'),
+  ('00000000-0000-0000-0000-000000000091','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000081','00000000-0000-0000-0000-000000000020')
+  on conflict (id) do nothing;

@@ -18,7 +18,7 @@ export interface RespostaLlm {
 
 export interface ProvedorLlm {
   readonly nome: string;
-  gerar(prompt: string): Promise<RespostaLlm>;
+  gerar(prompt: string, opcoes?: { maxTokens?: number }): Promise<RespostaLlm>;
 }
 
 export interface TrechoRecuperado {
