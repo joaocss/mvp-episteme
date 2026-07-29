@@ -9,3 +9,5 @@ __pycache__/
 /local/
 rag/exemplo/*.txt
 /superacao.txt
+.next/
+next-env.d.ts
