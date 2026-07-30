@@ -53,7 +53,9 @@ export default function FormulariosGestao({ turmas, professores }: { turmas: Opc
       </Cartao>
 
       <Cartao titulo="Vincular professor a turma">
-        <form onSubmit={useForm((fd) => ({ acao: "vinculo", professorId: fd.get("professorId"), turmaId: fd.get("turmaId") }))} className="space-y-2">
+        <form onSubmit={useForm((fd) => ({
+          acao: "vinculo", professorId: fd.get("professorId"), turmaId: fd.get("turmaId"), disciplina: fd.get("disciplina"),
+        }))} className="space-y-2">
           <select name="professorId" required className={inp}>
             <option value="">Professor…</option>
             {professores.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
@@ -61,6 +63,11 @@ export default function FormulariosGestao({ turmas, professores }: { turmas: Opc
           <select name="turmaId" required className={inp}>
             <option value="">Turma…</option>
             {turmas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+          </select>
+          <select name="disciplina" defaultValue="matematica" required className={inp}>
+            <option value="matematica">Matemática</option>
+            <option value="portugues">Língua Portuguesa</option>
+            <option value="historia">História</option>
           </select>
           <button className={btn}>Vincular</button>
         </form>

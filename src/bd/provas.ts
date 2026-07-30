@@ -19,26 +19,29 @@ export interface QuestaoParaInserir {
 
 // ---------------------------------------------------------------- professor
 
-export interface TurmaProfessor { id: string; nome: string; serie: string; anoLetivo: number; }
+// Uma linha por combinacao (turma, disciplina) que o professor leciona —
+// desde a Fase 7 (multi-disciplina) uma turma pode ter varias disciplinas.
+export interface TurmaProfessor { id: string; nome: string; serie: string; anoLetivo: number; disciplina: string; }
 
 export async function turmasDoProfessor(escolaId: string, professorId: string): Promise<TurmaProfessor[]> {
   const { rows } = await pool.query(
-    `select distinct t.id, t.nome, t.serie, t.ano_letivo
+    `select distinct t.id, t.nome, t.serie, t.ano_letivo, pt.disciplina
      from professores_turmas pt join turmas t on t.id = pt.turma_id
      where pt.escola_id = $1 and pt.professor_id = $2
-     order by t.nome`,
+     order by t.nome, pt.disciplina`,
     [escolaId, professorId],
   );
-  return rows.map((r) => ({ id: r.id, nome: r.nome, serie: r.serie, anoLetivo: r.ano_letivo }));
+  return rows.map((r) => ({ id: r.id, nome: r.nome, serie: r.serie, anoLetivo: r.ano_letivo, disciplina: r.disciplina }));
 }
 
 export async function criarProvaRascunho(
-  escolaId: string, professorId: string, turmaId: string, titulo: string, assunto: string, numeroQuestoes: number,
+  escolaId: string, professorId: string, turmaId: string, titulo: string, assunto: string,
+  numeroQuestoes: number, disciplina = "matematica",
 ): Promise<string> {
   const { rows } = await pool.query(
-    `insert into provas (escola_id, professor_id, turma_id, titulo, assunto, numero_questoes)
-     values ($1,$2,$3,$4,$5,$6) returning id`,
-    [escolaId, professorId, turmaId, titulo, assunto, numeroQuestoes],
+    `insert into provas (escola_id, professor_id, turma_id, titulo, assunto, numero_questoes, disciplina)
+     values ($1,$2,$3,$4,$5,$6,$7) returning id`,
+    [escolaId, professorId, turmaId, titulo, assunto, numeroQuestoes, disciplina],
   );
   return rows[0].id;
 }

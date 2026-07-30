@@ -3,7 +3,7 @@
 // direito de escrita — evita depender do formato de chave do PostgREST. O RLS
 // permanece ativo; o app (Next.js) continuara usando o cliente com JWT do usuario.
 import { pool } from "../bd/pool";
-import { ChunkParaInserir, RepositorioTrechos, TrechoRecuperado, TrechoBncc } from "../ia/tipos";
+import { ChunkParaInserir, RepositorioTrechos, TrechoRecuperado, TrechoBncc, FiltroConteudo } from "../ia/tipos";
 
 function vetorLiteral(v: number[]): string {
   return `[${v.join(",")}]`;
@@ -33,10 +33,10 @@ export class RepositorioPostgres implements RepositorioTrechos {
     }
   }
 
-  async buscar(escolaId: string, consulta: number[], limite: number): Promise<TrechoRecuperado[]> {
+  async buscar(escolaId: string, consulta: number[], limite: number, filtro?: FiltroConteudo): Promise<TrechoRecuperado[]> {
     const { rows } = await pool.query(
-      "select chunk_id, texto, metadados, score from buscar_trechos($1, $2::vector, $3)",
-      [escolaId, vetorLiteral(consulta), limite],
+      "select chunk_id, texto, metadados, score from buscar_trechos($1, $2::vector, $3, $4, $5)",
+      [escolaId, vetorLiteral(consulta), limite, filtro?.disciplina ?? null, filtro?.ano ?? null],
     );
     return rows.map((r) => ({
       chunkId: r.chunk_id,
@@ -46,15 +46,18 @@ export class RepositorioPostgres implements RepositorioTrechos {
     }));
   }
 
-  async classificarBncc(consulta: number[]): Promise<string | null> {
-    const { rows } = await pool.query(`select buscar_bncc($1::vector) as codigo`, [vetorLiteral(consulta)]);
+  async classificarBncc(consulta: number[], filtro?: FiltroConteudo): Promise<string | null> {
+    const { rows } = await pool.query(
+      `select buscar_bncc($1::vector, $2, $3) as codigo`,
+      [vetorLiteral(consulta), filtro?.disciplina ?? null, filtro?.ano ?? null],
+    );
     return rows[0]?.codigo ?? null;
   }
 
-  async buscarBncc(consulta: number[], limite: number): Promise<TrechoBncc[]> {
+  async buscarBncc(consulta: number[], limite: number, filtro?: FiltroConteudo): Promise<TrechoBncc[]> {
     const { rows } = await pool.query(
-      "select codigo, descricao, unidade_tematica, score from buscar_bncc_similar($1::vector, $2)",
-      [vetorLiteral(consulta), limite],
+      "select codigo, descricao, unidade_tematica, score from buscar_bncc_similar($1::vector, $2, $3, $4)",
+      [vetorLiteral(consulta), limite, filtro?.disciplina ?? null, filtro?.ano ?? null],
     );
     return rows.map((r) => ({
       codigo: r.codigo, descricao: r.descricao, unidadeTematica: r.unidade_tematica ?? null, score: Number(r.score),

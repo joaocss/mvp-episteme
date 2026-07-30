@@ -4,11 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Botao } from "../../../componentes/ui/Botao";
 
-interface Turma { id: string; nome: string; serie: string; anoLetivo: number; }
+interface Turma { id: string; nome: string; serie: string; anoLetivo: number; disciplina: string; }
+
+const ROTULO_DISCIPLINA: Record<string, string> = { matematica: "Matemática", portugues: "Língua Portuguesa", historia: "História" };
 
 export default function ElaborarProva({ turmas }: { turmas: Turma[] }) {
   const router = useRouter();
-  const [turmaId, setTurmaId] = useState(turmas[0]?.id ?? "");
+  const [combo, setCombo] = useState(turmas[0] ? `${turmas[0].id}::${turmas[0].disciplina}` : "");
+  const [turmaId, disciplina] = combo.split("::");
   const [titulo, setTitulo] = useState("");
   const [assunto, setAssunto] = useState("");
   const [numeroObjetivas, setNumeroObjetivas] = useState(3);
@@ -23,7 +26,7 @@ export default function ElaborarProva({ turmas }: { turmas: Turma[] }) {
     try {
       const r = await fetch("/api/professor/provas", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ acao: "gerar", turmaId, titulo, assunto, numeroObjetivas, numeroDissertativas }),
+        body: JSON.stringify({ acao: "gerar", turmaId, disciplina, titulo, assunto, numeroObjetivas, numeroDissertativas }),
       });
       const d = await r.json();
       if (r.ok) router.push(`/professor/provas/${d.provaId}`);
@@ -40,9 +43,13 @@ export default function ElaborarProva({ turmas }: { turmas: Turma[] }) {
   return (
     <form onSubmit={gerar} className="cartao space-y-4 p-5">
       <div>
-        <label className="mb-1 block text-sm font-medium text-grafite">Turma</label>
-        <select value={turmaId} onChange={(e) => setTurmaId(e.target.value)} className={inp} required>
-          {turmas.map((t) => <option key={t.id} value={t.id}>{t.nome} — {t.serie} ({t.anoLetivo})</option>)}
+        <label className="mb-1 block text-sm font-medium text-grafite">Turma e disciplina</label>
+        <select value={combo} onChange={(e) => setCombo(e.target.value)} className={inp} required>
+          {turmas.map((t) => (
+            <option key={`${t.id}::${t.disciplina}`} value={`${t.id}::${t.disciplina}`}>
+              {t.nome} — {t.serie} ({t.anoLetivo}) · {ROTULO_DISCIPLINA[t.disciplina] ?? t.disciplina}
+            </option>
+          ))}
         </select>
       </div>
       <div>

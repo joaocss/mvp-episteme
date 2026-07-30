@@ -22,8 +22,8 @@ export async function POST(requisicao: Request) {
   try {
     switch (d.acao) {
       case "gerar": {
-        if (!d.turmaId || !d.titulo || !d.assunto) {
-          return NextResponse.json({ erro: "informe turma, título e assunto" }, { status: 400 });
+        if (!d.turmaId || !d.titulo || !d.assunto || !d.disciplina) {
+          return NextResponse.json({ erro: "informe turma, disciplina, título e assunto" }, { status: 400 });
         }
         const numeroObjetivas = Number(d.numeroObjetivas) || 0;
         const numeroDissertativas = Number(d.numeroDissertativas) || 0;
@@ -32,6 +32,7 @@ export async function POST(requisicao: Request) {
         }
         const rascunho = await gerarRascunhoProva(esc, prof, {
           turmaId: d.turmaId, titulo: d.titulo, assunto: d.assunto, numeroObjetivas, numeroDissertativas,
+          disciplina: d.disciplina,
         });
         return NextResponse.json({ ok: true, provaId: rascunho.provaId });
       }

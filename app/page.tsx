@@ -21,7 +21,7 @@ export default function Inicio() {
 
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/tutor" className="btn-primario">Abrir o tutor</Link>
-            <Link href="/login" className="btn-secundario">Entrar</Link>
+            <Link href="/paineis" className="btn-secundario">Entrar</Link>
           </div>
         </section>
 

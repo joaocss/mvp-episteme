@@ -8,8 +8,9 @@ import { RepositorioPostgres } from "../../../src/rag/repositorioPostgres";
 import { lerToken } from "../../../lib/sessao";
 import {
   criarSessao, registrarInteracao, registrarFontes, registrarGuardrails, registrarAuditoria,
-  buscarHistoricoRecente,
+  buscarHistoricoRecente, obterDisciplinaSessao,
 } from "../../../src/rag/repositorioConversas";
+import { serieDoAluno } from "../../../src/bd/aluno";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -34,7 +35,7 @@ export async function POST(requisicao: Request) {
   if (!sessao) return NextResponse.json({ erro: "nao autenticado" }, { status: 401 });
   if (sessao.papel !== "aluno") return NextResponse.json({ erro: "acesso restrito a alunos" }, { status: 403 });
 
-  let corpo: { pergunta?: unknown; sessaoId?: unknown; imagemBase64?: unknown };
+  let corpo: { pergunta?: unknown; sessaoId?: unknown; imagemBase64?: unknown; disciplina?: unknown };
   try {
     corpo = await requisicao.json();
   } catch {
@@ -60,16 +61,30 @@ export async function POST(requisicao: Request) {
   const traceId = randomUUID();
   const { escolaId, usuarioId: alunoId } = sessao;
 
+  // Serie do aluno (Fase 7: multi-serie/multi-disciplina) e a serie determina
+  // o escopo do material buscado; a disciplina e escolhida pelo aluno na nova
+  // conversa e depois fica fixa na sessao (ver obterDisciplinaSessao abaixo).
+  const serie = await serieDoAluno(escolaId, alunoId);
+  const disciplinaEscolhida = typeof corpo.disciplina === "string" && corpo.disciplina.trim()
+    ? corpo.disciplina.trim() : "matematica";
+
   // Sessao de conversa (o chat reusa o id retornado).
   let sessaoId = typeof corpo.sessaoId === "string" && UUID.test(corpo.sessaoId) ? corpo.sessaoId : "";
   let interacaoAluno: string | null = null;
   let historico: { autor: "aluno" | "ia"; conteudo: string }[] = [];
+  let disciplina = disciplinaEscolhida;
   try {
-    if (!sessaoId) sessaoId = await criarSessao(escolaId, alunoId);
-    // Memoria de contexto (Fase 4): so traz turnos dentro do TTL de ~7 dias.
-    else historico = await buscarHistoricoRecente(escolaId, sessaoId);
+    if (!sessaoId) {
+      sessaoId = await criarSessao(escolaId, alunoId, disciplinaEscolhida);
+    } else {
+      // Memoria de contexto (Fase 4): so traz turnos dentro do TTL de ~7 dias.
+      [historico, disciplina] = await Promise.all([
+        buscarHistoricoRecente(escolaId, sessaoId),
+        obterDisciplinaSessao(escolaId, sessaoId),
+      ]);
+    }
     interacaoAluno = await registrarInteracao({
-      escolaId, sessaoId, autor: "aluno", conteudo: pergunta.trim(), traceId,
+      escolaId, sessaoId, autor: "aluno", conteudo: pergunta.trim(), traceId, anexoImagem: imagemBase64 ?? null,
     });
     await registrarAuditoria(escolaId, alunoId, "pergunta_tutor", "sessao", sessaoId, traceId);
   } catch (e) {
@@ -80,7 +95,7 @@ export async function POST(requisicao: Request) {
   const inicio = Date.now();
   let resultado;
   try {
-    resultado = await responder(escolaId, pergunta.trim(), obterDependencias(), historico, imagemBase64);
+    resultado = await responder(escolaId, pergunta.trim(), obterDependencias(), historico, imagemBase64, disciplina, serie);
   } catch (e) {
     console.error("[tutor]", e);
     return NextResponse.json({ erro: "falha ao processar" }, { status: 500 });
@@ -105,5 +120,5 @@ export async function POST(requisicao: Request) {
     console.error("[persist resposta]", e);
   }
 
-  return NextResponse.json({ ...resultado, sessaoId, traceId });
+  return NextResponse.json({ ...resultado, sessaoId, traceId, disciplina, serie });
 }

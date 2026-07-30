@@ -94,12 +94,12 @@ export async function POST(requisicao: Request) {
 
       case "vinculo":
         if (!d.professorId || !d.turmaId) return NextResponse.json({ erro: "selecione professor e turma" }, { status: 400 });
-        await vincularProfessorTurma(esc, d.professorId, d.turmaId);
+        await vincularProfessorTurma(esc, d.professorId, d.turmaId, d.disciplina || "matematica");
         break;
 
       case "desvincular":
         if (!d.professorId || !d.turmaId) return NextResponse.json({ erro: "dados incompletos" }, { status: 400 });
-        await desvincularProfessorTurma(esc, d.professorId, d.turmaId);
+        await desvincularProfessorTurma(esc, d.professorId, d.turmaId, d.disciplina || undefined);
         break;
 
       default:

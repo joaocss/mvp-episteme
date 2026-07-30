@@ -23,10 +23,10 @@ export default async function PaginaConfiguracoes() {
         <Link href="/gestor" className="mt-4 inline-block text-sm text-roxo hover:underline">← Voltar ao painel</Link>
         <h1 className="mt-2 text-2xl font-bold text-grafite">Configurações da escola</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Personalize a logo exibida no painel e defina a escala de nota usada nas provas, notas lançadas e nos dashboards.
+          Personalize o nome e a logo exibidos no painel e defina a escala de nota usada nas provas, notas lançadas e nos dashboards.
         </p>
         <div className="mt-6">
-          <ConfiguracoesForm logoUrl={config.logoUrl} notaMaxima={config.notaMaxima} notaMinimaAprovacao={config.notaMinimaAprovacao} />
+          <ConfiguracoesForm nome={config.nome} logoUrl={config.logoUrl} notaMaxima={config.notaMaxima} notaMinimaAprovacao={config.notaMinimaAprovacao} />
         </div>
       </div>
     </main>

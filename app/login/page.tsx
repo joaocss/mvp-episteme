@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const ROTA_PAPEL: Record<string, string> = { gestor: "/gestor", professor: "/professor", aluno: "/tutor" };
+const TITULO_PAPEL: Record<string, string> = { gestor: "Gestor", professor: "Professor", aluno: "Aluno" };
 
 export default function PaginaLogin() {
   const [modo, setModo] = useState<"entrar" | "cadastrar">("entrar");
@@ -9,6 +12,13 @@ export default function PaginaLogin() {
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [papelEscolhido, setPapelEscolhido] = useState<string | null>(null);
+
+  // Le ?papel= sem useSearchParams (evita exigir Suspense nesta pagina 100% client).
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("papel");
+    if (p && TITULO_PAPEL[p]) setPapelEscolhido(p);
+  }, []);
 
   async function enviar(evento: React.FormEvent) {
     evento.preventDefault();
@@ -22,8 +32,8 @@ export default function PaginaLogin() {
         body: JSON.stringify({ email, nome, senha }),
       });
       if (r.ok) {
-        await r.json().catch(() => ({}));
-        window.location.href = "/paineis";
+        const d = await r.json().catch(() => ({}));
+        window.location.href = ROTA_PAPEL[d.papel] ?? "/paineis";
       } else {
         const d = await r.json().catch(() => ({}));
         setErro(d.erro ?? "Não foi possível continuar.");
@@ -45,8 +55,13 @@ export default function PaginaLogin() {
         </div>
         <form onSubmit={enviar} className="flex flex-col gap-3 p-6">
           <p className="text-sm text-slate-600">
-            {modo === "entrar" ? "Entre com sua conta." : "Crie sua conta de aluno."}
+            {modo === "entrar"
+              ? papelEscolhido ? `Entrar como ${TITULO_PAPEL[papelEscolhido]}.` : "Entre com sua conta."
+              : "Crie sua conta de aluno."}
           </p>
+          {papelEscolhido && (
+            <a href="/paineis" className="-mt-2 text-xs text-roxo hover:underline">← Trocar de perfil</a>
+          )}
           {modo === "cadastrar" && (
             <div>
               <label htmlFor="nome" className="block text-sm font-medium text-slate-700">Nome</label>

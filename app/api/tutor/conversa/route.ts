@@ -12,7 +12,7 @@ export async function GET(requisicao: Request) {
     return NextResponse.json({ erro: "nao autenticado" }, { status: 401 });
   }
   const sessaoId = new URL(requisicao.url).searchParams.get("sessao") ?? "";
-  const mensagens = await conversaDoAluno(sessao.usuarioId, sessaoId);
-  if (!mensagens) return NextResponse.json({ erro: "sessao nao encontrada" }, { status: 404 });
-  return NextResponse.json({ mensagens });
+  const conversa = await conversaDoAluno(sessao.usuarioId, sessaoId);
+  if (!conversa) return NextResponse.json({ erro: "sessao nao encontrada" }, { status: 404 });
+  return NextResponse.json(conversa);
 }

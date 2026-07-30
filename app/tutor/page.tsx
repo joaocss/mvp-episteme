@@ -19,6 +19,10 @@ const RotuloOrigem: Record<string, string> = {
   imagem: "📷 Baseado na imagem enviada (não está no material da escola)",
 };
 
+const ROTULO_DISCIPLINA: Record<string, string> = {
+  matematica: "Matemática", portugues: "Língua Portuguesa", historia: "História",
+};
+
 const TAMANHO_MAX_IMAGEM = 4_500_000; // bytes, antes de virar base64
 
 interface ResumoSessao { sessaoId: string; perguntas: number; iniciada: string; }
@@ -32,7 +36,18 @@ export default function PaginaTutor() {
   const [historico, setHistorico] = useState<ResumoSessao[]>([]);
   const [imagem, setImagem] = useState<string | null>(null);
   const [erroImagem, setErroImagem] = useState("");
+  const [serie, setSerie] = useState("");
+  const [disciplinas, setDisciplinas] = useState<string[]>([]);
+  const [disciplina, setDisciplina] = useState("matematica");
   const fimDaConversa = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch("/api/tutor/disciplinas").then((r) => r.json()).then((d) => {
+      setSerie(d.serie ?? "");
+      setDisciplinas(d.disciplinas ?? ["matematica"]);
+      if (d.disciplinas?.length) setDisciplina(d.disciplinas[0]);
+    }).catch(() => {});
+  }, []);
 
   function escolherImagem(arquivo: File | undefined) {
     setErroImagem("");
@@ -59,9 +74,11 @@ export default function PaginaTutor() {
       const r = await fetch(`/api/tutor/conversa?sessao=${id}`);
       if (!r.ok) return;
       const d = await r.json();
-      setMensagens((d.mensagens ?? []).map((m: { autor: string; conteudo: string }) => ({
+      setMensagens((d.mensagens ?? []).map((m: { autor: string; conteudo: string; anexoImagem: string | null }) => ({
         autor: m.autor === "aluno" ? "aluno" : "tutor", texto: m.conteudo,
+        imagemPreview: m.anexoImagem ?? undefined,
       })));
+      if (d.disciplina) setDisciplina(d.disciplina);
       setSessaoId(id);
     } catch { /* silencioso */ }
   }
@@ -80,10 +97,11 @@ export default function PaginaTutor() {
       const resposta = await fetch("/api/tutor", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pergunta: limpo, sessaoId, imagemBase64: imagemEnviada ?? undefined }),
+        body: JSON.stringify({ pergunta: limpo, sessaoId, imagemBase64: imagemEnviada ?? undefined, disciplina }),
       });
       const dados = await resposta.json();
       if (dados.sessaoId) setSessaoId(dados.sessaoId);
+      if (dados.disciplina) setDisciplina(dados.disciplina);
       if (dados.tema) setTemaQuestoes(dados.tema);
       setMensagens((atual) => [...atual, {
         autor: "tutor",
@@ -122,7 +140,17 @@ export default function PaginaTutor() {
         }
       />
 
-      <h1 className="mt-3 text-lg font-bold text-grafite">Tutor de Matemática — 6º ano</h1>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-lg font-bold text-grafite">
+          Tutor de {ROTULO_DISCIPLINA[disciplina] ?? disciplina}{serie ? ` — ${serie}` : ""}
+        </h1>
+        {!sessaoId && mensagens.length === 0 && disciplinas.length > 1 && (
+          <select value={disciplina} onChange={(e) => setDisciplina(e.target.value)}
+            className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-roxo-claro">
+            {disciplinas.map((d) => <option key={d} value={d}>{ROTULO_DISCIPLINA[d] ?? d}</option>)}
+          </select>
+        )}
+      </div>
 
       {historico.length > 0 && (
         <details className="mt-3 cartao p-2">

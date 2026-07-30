@@ -1,7 +1,7 @@
 // Repositorio real: grava em material_chunks e busca via RPC buscar_trechos.
 // pgvector espera o vetor como literal de texto "[1,2,3]" (nao array JS).
 import { SupabaseClient } from "@supabase/supabase-js";
-import { ChunkParaInserir, RepositorioTrechos, TrechoRecuperado } from "../ia/tipos";
+import { ChunkParaInserir, RepositorioTrechos, TrechoRecuperado, FiltroConteudo } from "../ia/tipos";
 
 function vetorParaLiteral(v: number[]): string {
   return `[${v.join(",")}]`;
@@ -23,11 +23,13 @@ export class RepositorioSupabase implements RepositorioTrechos {
     if (error) throw new Error(`Falha ao inserir chunks: ${error.message}`);
   }
 
-  async buscar(escolaId: string, consulta: number[], limite: number): Promise<TrechoRecuperado[]> {
+  async buscar(escolaId: string, consulta: number[], limite: number, filtro?: FiltroConteudo): Promise<TrechoRecuperado[]> {
     const { data, error } = await this.cliente.rpc("buscar_trechos", {
       p_escola_id: escolaId,
       p_consulta: vetorParaLiteral(consulta),
       p_limite: limite,
+      p_disciplina: filtro?.disciplina ?? null,
+      p_ano: filtro?.ano ?? null,
     });
     if (error) throw new Error(`Falha na busca: ${error.message}`);
     return (data ?? []).map((r: any) => ({

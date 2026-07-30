@@ -25,6 +25,10 @@ export default async function PaginaSessao({ params }: { params: Promise<{ id: s
           <div key={i} className={m.autor === "aluno" ? "text-right" : "text-left"}>
             <span className={`inline-block max-w-[85%] whitespace-pre-line rounded-lg px-3 py-2 ${
               m.autor === "aluno" ? "bg-blue-700 text-white" : "border border-slate-200 bg-slate-50"}`}>
+              {m.anexoImagem && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={m.anexoImagem} alt="Imagem enviada pelo aluno" className="mb-2 max-h-40 rounded-lg" />
+              )}
               {m.conteudo}
             </span>
             <p className="mt-1 text-xs text-slate-400">{m.autor === "aluno" ? "Aluno" : "Tutor"} · {m.quando}</p>

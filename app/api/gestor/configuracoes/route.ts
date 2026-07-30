@@ -17,6 +17,6 @@ export async function POST(requisicao: Request) {
   if (!notaMaxima || notaMaxima <= 0 || notaMinimaAprovacao < 0 || notaMinimaAprovacao > notaMaxima) {
     return NextResponse.json({ erro: "escala de nota inválida" }, { status: 400 });
   }
-  await salvarConfigEscola(sessao.escolaId, d.logoUrl || null, notaMaxima, notaMinimaAprovacao);
+  await salvarConfigEscola(sessao.escolaId, d.logoUrl || null, notaMaxima, notaMinimaAprovacao, d.nome);
   return NextResponse.json({ ok: true });
 }

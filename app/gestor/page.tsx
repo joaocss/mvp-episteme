@@ -69,7 +69,7 @@ export default async function PaginaGestor() {
             <img src={config.logoUrl} alt="Logo da escola" className="h-10 w-auto rounded object-contain" />
           )}
           <div>
-            <h1 className="text-2xl font-bold text-grafite">Painel Gestor</h1>
+            <h1 className="text-2xl font-bold text-grafite">Painel Gestor — {config.nome || "Escola"}</h1>
             <p className="text-sm text-slate-500">Visão geral da escola</p>
           </div>
         </div>

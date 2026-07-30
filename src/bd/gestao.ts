@@ -122,19 +122,30 @@ export async function definirTurmaAluno(escolaId: string, alunoId: string, turma
   if (turmaId) await matricularAluno(escolaId, alunoId, turmaId);
 }
 
-export async function vincularProfessorTurma(escolaId: string, professorId: string, turmaId: string): Promise<void> {
+export async function vincularProfessorTurma(
+  escolaId: string, professorId: string, turmaId: string, disciplina = "matematica",
+): Promise<void> {
   await pool.query(
     `insert into professores_turmas (escola_id, professor_id, turma_id, disciplina)
-     values ($1,$2,$3,'matematica') on conflict (professor_id, turma_id, disciplina) do nothing`,
-    [escolaId, professorId, turmaId],
+     values ($1,$2,$3,$4) on conflict (professor_id, turma_id, disciplina) do nothing`,
+    [escolaId, professorId, turmaId, disciplina],
   );
 }
 
-export async function desvincularProfessorTurma(escolaId: string, professorId: string, turmaId: string): Promise<void> {
-  await pool.query(
-    `delete from professores_turmas where escola_id = $1 and professor_id = $2 and turma_id = $3`,
-    [escolaId, professorId, turmaId],
-  );
+export async function desvincularProfessorTurma(
+  escolaId: string, professorId: string, turmaId: string, disciplina?: string,
+): Promise<void> {
+  if (disciplina) {
+    await pool.query(
+      `delete from professores_turmas where escola_id = $1 and professor_id = $2 and turma_id = $3 and disciplina = $4`,
+      [escolaId, professorId, turmaId, disciplina],
+    );
+  } else {
+    await pool.query(
+      `delete from professores_turmas where escola_id = $1 and professor_id = $2 and turma_id = $3`,
+      [escolaId, professorId, turmaId],
+    );
+  }
 }
 
 export interface TurmaLista { id: string; nome: string; serie: string; anoLetivo: number; alunos: number; }

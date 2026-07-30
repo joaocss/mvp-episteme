@@ -1,5 +1,5 @@
 // Repositorio em memoria: usado na demo e nos testes, sem banco.
-import { ChunkParaInserir, RepositorioTrechos, TrechoRecuperado } from "../ia/tipos";
+import { ChunkParaInserir, RepositorioTrechos, TrechoRecuperado, FiltroConteudo } from "../ia/tipos";
 import { similaridadeCosseno } from "../ia/texto";
 
 interface Registro extends ChunkParaInserir { escolaId: string; chunkId: string; }
@@ -14,7 +14,7 @@ export class RepositorioMemoria implements RepositorioTrechos {
     }
   }
 
-  async buscar(escolaId: string, consulta: number[], limite: number): Promise<TrechoRecuperado[]> {
+  async buscar(escolaId: string, consulta: number[], limite: number, _filtro?: FiltroConteudo): Promise<TrechoRecuperado[]> {
     return this.registros
       .filter((r) => r.escolaId === escolaId) // isolamento por tenant (aqui em memoria)
       .map((r) => ({

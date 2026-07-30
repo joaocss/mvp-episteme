@@ -5,12 +5,20 @@ import { TrechoRecuperado } from "../ia/tipos";
 import { EventoGuardrail } from "../ia/guardrails";
 
 
-export async function criarSessao(escolaId: string, alunoId: string): Promise<string> {
+export async function criarSessao(escolaId: string, alunoId: string, disciplina = "matematica"): Promise<string> {
   const { rows } = await pool.query(
-    `insert into sessoes_tutor (escola_id, aluno_id) values ($1, $2) returning id`,
-    [escolaId, alunoId],
+    `insert into sessoes_tutor (escola_id, aluno_id, disciplina) values ($1, $2, $3) returning id`,
+    [escolaId, alunoId, disciplina],
   );
   return rows[0].id;
+}
+
+export async function obterDisciplinaSessao(escolaId: string, sessaoId: string): Promise<string> {
+  const { rows } = await pool.query(
+    `select disciplina from sessoes_tutor where id = $1 and escola_id = $2`,
+    [sessaoId, escolaId],
+  );
+  return rows[0]?.disciplina ?? "matematica";
 }
 
 export interface MensagemHistorico { autor: "aluno" | "ia"; conteudo: string }
@@ -42,15 +50,17 @@ export interface DadosInteracao {
   latenciaMs?: number | null;
   competenciaBncc?: string | null;
   traceId: string;
+  anexoImagem?: string | null;
 }
 
 export async function registrarInteracao(d: DadosInteracao): Promise<string> {
   const { rows } = await pool.query(
     `insert into interacoes
-       (escola_id, sessao_id, autor, conteudo, modelo, tokens_entrada, tokens_saida, latencia_ms, competencia_bncc, trace_id)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id`,
+       (escola_id, sessao_id, autor, conteudo, modelo, tokens_entrada, tokens_saida, latencia_ms, competencia_bncc, trace_id, anexo_imagem)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id`,
     [d.escolaId, d.sessaoId, d.autor, d.conteudo, d.modelo ?? null,
-     d.tokensEntrada ?? null, d.tokensSaida ?? null, d.latenciaMs ?? null, d.competenciaBncc ?? null, d.traceId],
+     d.tokensEntrada ?? null, d.tokensSaida ?? null, d.latenciaMs ?? null, d.competenciaBncc ?? null, d.traceId,
+     d.anexoImagem ?? null],
   );
   return rows[0].id;
 }

@@ -1,7 +1,7 @@
 // Pipeline do tutor: guardrail -> (PII) -> embedding -> busca em camadas
 // (livro -> BNCC -> conhecimento geral) -> prompt -> LLM -> guardrail de
 // saida. Inclui modo "questoes de treino".
-import { ProvedorEmbeddings, ProvedorLlm, RepositorioTrechos, TrechoRecuperado, TrechoBncc } from "../ia/tipos";
+import { ProvedorEmbeddings, ProvedorLlm, RepositorioTrechos, TrechoRecuperado, TrechoBncc, FiltroConteudo } from "../ia/tipos";
 import { normalizar } from "../ia/texto";
 import {
   guardrailEntrada, guardrailSaida, minimizarPii, EventoGuardrail,
@@ -16,19 +16,35 @@ export const LIMIAR_GROUNDING = 0.12;
 export const LIMIAR_BNCC = 0.15;
 const TOP_K = 3;
 
+// Fase 7 (multi-serie/multi-disciplina): rotulos amigaveis para o prompt e
+// para a UI. "disciplina" e sempre o slug sem acento gravado no banco
+// (materiais_fonte.disciplina, provas.disciplina, sessoes_tutor.disciplina).
+export const ROTULO_DISCIPLINA: Record<string, string> = {
+  matematica: "Matemática",
+  portugues: "Língua Portuguesa",
+  historia: "História",
+};
+export function rotuloDisciplina(disciplina: string): string {
+  return ROTULO_DISCIPLINA[disciplina] ?? disciplina;
+}
+
 // Parceira cognitiva (alinhado ao ensaio sobre regressao cognitiva): o tutor
 // faz o aluno pensar, da pistas antes da resposta e nao entrega tudo pronto.
 // Pede explicacao passo a passo, formatada em markdown, para ficar didatica.
-export const REGRAS_SISTEMA =
-  "Voce e um tutor de Matematica do 6o ano e atua como PARCEIRA COGNITIVA: seu " +
-  "papel e fazer o aluno PENSAR, nao pensar por ele. Responda em linguagem simples, " +
-  "adequada a uma crianca de 11 anos. Estruture a explicacao em PASSO A PASSO " +
-  "numerado, um raciocinio por vez, usando markdown (negrito nos termos-chave, " +
-  "listas numeradas, formulas entre crases quando ajudar). Antes de dar a resposta " +
-  "pronta, incentive o aluno a tentar e ofereca pistas. NUNCA entregue apenas a " +
-  "resposta final de uma tarefa avaliativa. Jamais use linguagem punitiva ou " +
-  "humilhante. Ao final, convide o aluno a perguntar de novo caso ainda tenha " +
-  "duvida (ex.: 'Ficou alguma parte confusa? Pode perguntar de novo.').";
+function regrasSistema(disciplina: string, ano: string): string {
+  const materia = rotuloDisciplina(disciplina);
+  return (
+    `Voce e um tutor de ${materia} do ${ano} e atua como PARCEIRA COGNITIVA: seu ` +
+    "papel e fazer o aluno PENSAR, nao pensar por ele. Responda em linguagem simples, " +
+    "adequada a idade do aluno dessa serie. Estruture a explicacao em PASSO A PASSO " +
+    "numerado, um raciocinio por vez, usando markdown (negrito nos termos-chave, " +
+    "listas numeradas, formulas entre crases quando ajudar). Antes de dar a resposta " +
+    "pronta, incentive o aluno a tentar e ofereca pistas. NUNCA entregue apenas a " +
+    "resposta final de uma tarefa avaliativa. Jamais use linguagem punitiva ou " +
+    "humilhante. Ao final, convide o aluno a perguntar de novo caso ainda tenha " +
+    "duvida (ex.: 'Ficou alguma parte confusa? Pode perguntar de novo.')."
+  );
+}
 
 // Complemento quando ha conteudo do LIVRO da escola: usar so o que foi fornecido.
 const REGRA_FONTE_LIVRO =
@@ -45,11 +61,14 @@ const REGRA_FONTE_BNCC =
   "e que vale conferir com o professor.";
 
 // Complemento quando NEM o livro NEM a BNCC tem algo relacionado: conhecimento geral.
-const REGRA_FONTE_GERAL =
-  "Nao ha trecho do livro da escola nem habilidade da BNCC relacionados a essa duvida. " +
-  "Responda mesmo assim, com seu conhecimento geral de Matematica do 6o ano, mas " +
-  "comece a resposta com uma linha curta avisando que isso nao esta no material " +
-  "oficial da escola e sugerindo confirmar com o professor.";
+function regraFonteGeral(disciplina: string, ano: string): string {
+  return (
+    "Nao ha trecho do livro da escola nem habilidade da BNCC relacionados a essa duvida. " +
+    `Responda mesmo assim, com seu conhecimento geral de ${rotuloDisciplina(disciplina)} do ${ano}, mas ` +
+    "comece a resposta com uma linha curta avisando que isso nao esta no material " +
+    "oficial da escola e sugerindo confirmar com o professor."
+  );
+}
 
 // Complemento quando o aluno envia uma foto/imagem junto da pergunta (Fase 6:
 // tutor multimodal) e nem o livro nem a BNCC tem um trecho especifico: a foto
@@ -60,19 +79,22 @@ const REGRA_FONTE_IMAGEM =
   "trecho especifico sobre esse conteudo. Comece a resposta com uma linha curta avisando " +
   "que a explicacao e baseada na imagem enviada, nao no material oficial da escola.";
 
-const REGRAS_QUESTOES: Record<"multipla" | "objetiva", string> = {
-  multipla:
-    "Crie 3 questoes de MULTIPLA ESCOLHA de Matematica do 6o ano com base APENAS no " +
-    "conteudo fornecido. Cada questao tem 4 alternativas (A, B, C, D), apenas uma correta. " +
-    "Nao revele as respostas junto das questoes. Ao final, em uma secao separada chamada " +
-    "'GABARITO', indique a alternativa correta de cada questao com uma breve explicacao " +
-    "(feedback) que ajude o aluno a entender o porque.",
-  objetiva:
-    "Crie 3 questoes OBJETIVAS (problemas curtos para o aluno resolver) de Matematica do 6o " +
-    "ano com base APENAS no conteudo fornecido. Nao de a resposta junto das questoes. Ao " +
-    "final, em uma secao 'GABARITO', apresente a resolucao passo a passo de cada questao " +
-    "como feedback.",
-};
+function regrasQuestoes(disciplina: string, ano: string): Record<"multipla" | "objetiva", string> {
+  const materia = rotuloDisciplina(disciplina);
+  return {
+    multipla:
+      `Crie 3 questoes de MULTIPLA ESCOLHA de ${materia} do ${ano} com base APENAS no ` +
+      "conteudo fornecido. Cada questao tem 4 alternativas (A, B, C, D), apenas uma correta. " +
+      "Nao revele as respostas junto das questoes. Ao final, em uma secao separada chamada " +
+      "'GABARITO', indique a alternativa correta de cada questao com uma breve explicacao " +
+      "(feedback) que ajude o aluno a entender o porque.",
+    objetiva:
+      `Crie 3 questoes OBJETIVAS (problemas curtos para o aluno resolver) de ${materia} do ${ano} ` +
+      "com base APENAS no conteudo fornecido. Nao de a resposta junto das questoes. Ao " +
+      "final, em uma secao 'GABARITO', apresente a resolucao passo a passo de cada questao " +
+      "como feedback.",
+  };
+}
 
 export interface Dependencias {
   embeddings: ProvedorEmbeddings;
@@ -136,7 +158,10 @@ export async function responder(
   dep: Dependencias,
   historico: TurnoHistorico[] = [],
   imagemBase64?: string,
+  disciplina = "matematica",
+  ano = "6o ano",
 ): Promise<ResultadoTutor> {
+  const filtro: FiltroConteudo = { disciplina, ano };
   const eventos = guardrailEntrada(pergunta);
   const base: ResultadoTutor = { recusado: false, fontes: [], eventos, telemetria: { melhorScore: 0 } };
 
@@ -157,12 +182,12 @@ export async function responder(
 
   const perguntaSegura = minimizarPii(pergunta);
   const vetor = await dep.embeddings.gerar(perguntaSegura);
-  const fontes = await dep.repositorio.buscar(escolaId, vetor, TOP_K);
+  const fontes = await dep.repositorio.buscar(escolaId, vetor, TOP_K, filtro);
   const melhorScore = fontes[0]?.score ?? 0;
   base.telemetria.melhorScore = Number(melhorScore.toFixed(3));
   base.fontes = fontes;
   if (dep.repositorio.classificarBncc) {
-    try { base.competenciaBncc = (await dep.repositorio.classificarBncc(vetor)) ?? undefined; }
+    try { base.competenciaBncc = (await dep.repositorio.classificarBncc(vetor, filtro)) ?? undefined; }
     catch { /* etiquetagem best-effort */ }
   }
 
@@ -173,9 +198,9 @@ export async function responder(
       return { ...base, recusado: true, motivo: "sem_base", resposta: MENSAGEM_SEM_BASE };
     }
     const prompt = montarPrompt(
-      REGRAS_QUESTOES[analise.formato], REGRA_FONTE_LIVRO, perguntaSegura, contextoDoLivro(fontes), historico,
+      regrasQuestoes(disciplina, ano)[analise.formato], REGRA_FONTE_LIVRO, perguntaSegura, contextoDoLivro(fontes), historico,
     );
-    const saidaLlm = await dep.llm.gerar(prompt);
+    const saidaLlm = await dep.llm.gerar(prompt, { maxTokens: 1200 });
     const saida = guardrailSaida(saidaLlm.texto);
     return {
       ...base, resposta: saida.texto, origemResposta: "livro", eventos: [...eventos, ...saida.eventos],
@@ -194,7 +219,7 @@ export async function responder(
   } else {
     let trechosBncc: TrechoBncc[] = [];
     if (dep.repositorio.buscarBncc) {
-      try { trechosBncc = await dep.repositorio.buscarBncc(vetor, TOP_K); } catch { /* fallback best-effort */ }
+      try { trechosBncc = await dep.repositorio.buscarBncc(vetor, TOP_K, filtro); } catch { /* fallback best-effort */ }
     }
     const melhorBncc = trechosBncc[0]?.score ?? 0;
     if (melhorBncc >= LIMIAR_BNCC) {
@@ -206,13 +231,13 @@ export async function responder(
       regraFonte = REGRA_FONTE_IMAGEM;
       origemResposta = "imagem";
     } else {
-      regraFonte = REGRA_FONTE_GERAL;
+      regraFonte = regraFonteGeral(disciplina, ano);
       origemResposta = "conhecimento_geral";
     }
   }
 
-  const prompt = montarPrompt(REGRAS_SISTEMA, regraFonte, perguntaSegura, contexto, historico);
-  const saidaLlm = await dep.llm.gerar(prompt, imagemBase64 ? { imagemBase64 } : undefined);
+  const prompt = montarPrompt(regrasSistema(disciplina, ano), regraFonte, perguntaSegura, contexto, historico);
+  const saidaLlm = await dep.llm.gerar(prompt, { maxTokens: 1200, imagemBase64 });
   const saida = guardrailSaida(saidaLlm.texto);
 
   return {

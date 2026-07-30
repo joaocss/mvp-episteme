@@ -141,13 +141,13 @@ export async function listarSessoes(professorId: string, limite = 30): Promise<R
   }));
 }
 
-export interface MensagemConversa { autor: string; conteudo: string; quando: string; }
+export interface MensagemConversa { autor: string; conteudo: string; quando: string; anexoImagem: string | null; }
 
 export async function conversaDaSessao(
   professorId: string, sessaoId: string,
-): Promise<{ aluno: string; mensagens: MensagemConversa[] } | null> {
+): Promise<{ aluno: string; disciplina: string; mensagens: MensagemConversa[] } | null> {
   const dono = await pool.query(
-    `select u.nome as aluno
+    `select u.nome as aluno, s.disciplina
      from sessoes_tutor s
      join usuarios u on u.id = s.aluno_id
      join matriculas m on m.aluno_id = s.aluno_id
@@ -158,13 +158,15 @@ export async function conversaDaSessao(
   );
   if (!dono.rows[0]) return null; // nao pertence a uma turma do professor
   const { rows } = await pool.query(
-    `select autor, conteudo, criado_em from interacoes where sessao_id = $1 order by criado_em asc`,
+    `select autor, conteudo, criado_em, anexo_imagem from interacoes where sessao_id = $1 order by criado_em asc`,
     [sessaoId],
   );
   return {
     aluno: dono.rows[0].aluno,
+    disciplina: dono.rows[0].disciplina ?? "matematica",
     mensagens: rows.map((r) => ({
       autor: r.autor, conteudo: r.conteudo, quando: new Date(r.criado_em).toLocaleString("pt-BR"),
+      anexoImagem: r.anexo_imagem ?? null,
     })),
   };
 }

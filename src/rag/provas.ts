@@ -11,7 +11,7 @@ import { criarLlm } from "../ia/fabricaLlm";
 import { RepositorioPostgres } from "./repositorioPostgres";
 import { guardrailEntrada, guardrailSaida, MENSAGEM_SEGURANCA, MENSAGEM_SEM_BASE } from "../ia/guardrails";
 import { registrarGuardrails } from "./repositorioConversas";
-import { LIMIAR_GROUNDING, responder as responderTutor } from "./tutor";
+import { LIMIAR_GROUNDING, responder as responderTutor, rotuloDisciplina } from "./tutor";
 import { Alternativa, QuestaoParaInserir, TipoQuestao, criarProvaRascunho, inserirQuestoes, salvarFeedbackIa } from "../bd/provas";
 
 export class ErroSemBase extends Error {}
@@ -75,6 +75,7 @@ export function parseRascunhoLlm(texto: string): QuestaoGerada[] {
 
 export interface DadosGeracaoProva {
   turmaId: string; titulo: string; assunto: string; numeroObjetivas: number; numeroDissertativas: number;
+  disciplina: string;
 }
 export interface QuestaoGeradaResumo { id: string; ordem: number; tipo: TipoQuestao; enunciado: string; }
 export interface RascunhoProva { provaId: string; questoes: QuestaoGeradaResumo[]; }
@@ -83,22 +84,26 @@ export async function gerarRascunhoProva(
   escolaId: string, professorId: string, dados: DadosGeracaoProva,
 ): Promise<RascunhoProva> {
   const vinculo = await pool.query(
-    `select 1 from professores_turmas where escola_id = $1 and professor_id = $2 and turma_id = $3`,
-    [escolaId, professorId, dados.turmaId],
+    `select t.serie
+     from professores_turmas pt join turmas t on t.id = pt.turma_id
+     where pt.escola_id = $1 and pt.professor_id = $2 and pt.turma_id = $3 and pt.disciplina = $4`,
+    [escolaId, professorId, dados.turmaId, dados.disciplina],
   );
-  if (!vinculo.rows[0]) throw new Error("Você não leciona essa turma.");
+  if (!vinculo.rows[0]) throw new Error("Você não leciona essa disciplina nessa turma.");
+  const serie: string = vinculo.rows[0].serie;
 
   const embeddings = criarEmbeddings();
   const repo = new RepositorioPostgres();
   const vetor = await embeddings.gerar(dados.assunto);
-  const trechos = await repo.buscar(escolaId, vetor, 8);
+  const trechos = await repo.buscar(escolaId, vetor, 8, { disciplina: dados.disciplina, ano: serie });
   const melhorScore = trechos[0]?.score ?? 0;
   if (melhorScore < LIMIAR_GROUNDING) throw new ErroSemBase(MENSAGEM_SEM_BASE);
 
   const contexto = trechos.map((t) => t.texto).join("\n---\n").slice(0, 6000);
+  const materia = rotuloDisciplina(dados.disciplina);
 
   const prompt =
-`Voce e um professor de Matematica do 6o ano, especialista em elaborar avaliacoes com base no material didatico da escola.
+`Voce e um professor de ${materia} do ${serie}, especialista em elaborar avaliacoes com base no material didatico da escola.
 
 CONTEUDO DO MATERIAL (fonte, use APENAS isto):
 ${contexto}
@@ -126,7 +131,7 @@ Responda APENAS com um array JSON valido, sem nenhum texto antes ou depois, no f
   }
 ]
 
-Regras: linguagem simples, adequada a uma crianca de 11 anos; questoes baseadas SOMENTE no material fornecido; no campo "gabarito" das objetivas coloque so a letra (A, B, C ou D); nao inclua texto fora do array JSON.`;
+Regras: linguagem simples, adequada a idade do ${serie}; questoes baseadas SOMENTE no material fornecido; no campo "gabarito" das objetivas coloque so a letra (A, B, C ou D); nao inclua texto fora do array JSON.`;
 
   const resposta = await criarLlm().gerar(prompt, { maxTokens: 4000 });
   const geradas = parseRascunhoLlm(resposta.texto || "");
@@ -137,7 +142,9 @@ Regras: linguagem simples, adequada a uma crianca de 11 anos; questoes baseadas 
     gabarito: q.gabarito, explicacao: q.explicacao,
   }));
 
-  const provaId = await criarProvaRascunho(escolaId, professorId, dados.turmaId, dados.titulo, dados.assunto, paraInserir.length);
+  const provaId = await criarProvaRascunho(
+    escolaId, professorId, dados.turmaId, dados.titulo, dados.assunto, paraInserir.length, dados.disciplina,
+  );
   await inserirQuestoes(escolaId, provaId, paraInserir);
 
   return {
@@ -148,11 +155,23 @@ Regras: linguagem simples, adequada a uma crianca de 11 anos; questoes baseadas 
 
 // -------------------------------------------------------- feedback (aluno)
 
-async function buscarContexto(escolaId: string, textoConsulta: string, limite = 6) {
+interface DisciplinaAno { disciplina: string; ano: string; }
+
+async function disciplinaAnoDaQuestao(escolaId: string, questaoId: string): Promise<DisciplinaAno> {
+  const r = (await pool.query(
+    `select p.disciplina, t.serie as ano
+     from questoes q join provas p on p.id = q.prova_id join turmas t on t.id = p.turma_id
+     where q.id = $1 and q.escola_id = $2`,
+    [questaoId, escolaId],
+  )).rows[0];
+  return { disciplina: r?.disciplina ?? "matematica", ano: r?.ano ?? "6o ano" };
+}
+
+async function buscarContexto(escolaId: string, textoConsulta: string, filtro: DisciplinaAno, limite = 6) {
   const embeddings = criarEmbeddings();
   const repo = new RepositorioPostgres();
   const vetor = await embeddings.gerar(textoConsulta);
-  const trechos = await repo.buscar(escolaId, vetor, limite);
+  const trechos = await repo.buscar(escolaId, vetor, limite, filtro);
   const melhorScore = trechos[0]?.score ?? 0;
   const contexto = trechos.map((t) => t.texto).join("\n---\n").slice(0, 4000);
   return { melhorScore, contexto };
@@ -172,17 +191,18 @@ export async function feedbackQuestaoObjetiva(
   if (!r) throw new Error("Responda a questão antes de pedir feedback.");
   if (r.feedback_ia) return { recusado: false, feedback: r.feedback_ia };
 
-  const { melhorScore, contexto } = await buscarContexto(escolaId, r.enunciado);
+  const da = await disciplinaAnoDaQuestao(escolaId, questaoId);
+  const { melhorScore, contexto } = await buscarContexto(escolaId, r.enunciado, da);
   if (melhorScore < LIMIAR_GROUNDING) return { recusado: true, feedback: MENSAGEM_SEM_BASE };
 
   const prompt =
 `### REGRAS
-Voce e um tutor de Matematica do 6o ano. Explique de forma didatica e encorajadora, em
-linguagem simples para uma crianca de 11 anos, por que a alternativa correta esta certa e,
-se o aluno errou, onde o raciocinio dele provavelmente se desviou. Estruture a explicacao em
-PASSO A PASSO numerado, em markdown (negrito nos termos-chave, lista numerada). Use APENAS o
-material fornecido. Nunca use linguagem punitiva ou humilhante. Termine convidando o aluno a
-perguntar de novo, na aba do tutor, se ainda ficou com duvida.
+Voce e um tutor de ${rotuloDisciplina(da.disciplina)} do ${da.ano}. Explique de forma didatica e
+encorajadora, em linguagem simples e adequada a idade dessa serie, por que a alternativa correta
+esta certa e, se o aluno errou, onde o raciocinio dele provavelmente se desviou. Estruture a
+explicacao em PASSO A PASSO numerado, em markdown (negrito nos termos-chave, lista numerada). Use
+APENAS o material fornecido. Nunca use linguagem punitiva ou humilhante. Termine convidando o
+aluno a perguntar de novo, na aba do tutor, se ainda ficou com duvida.
 
 ### CONTEUDO DO MATERIAL (fonte)
 ${contexto}
@@ -198,7 +218,7 @@ ${r.resposta_aluno} (${r.correta ? "correta" : "incorreta"})
 
 Escreva o feedback diretamente para o aluno.`;
 
-  const saidaLlm = await criarLlm().gerar(prompt, { maxTokens: 500 });
+  const saidaLlm = await criarLlm().gerar(prompt, { maxTokens: 900 });
   const saida = guardrailSaida(saidaLlm.texto);
   await salvarFeedbackIa(escolaId, questaoId, alunoId, saida.texto);
   return { recusado: false, feedback: saida.texto };
@@ -213,16 +233,17 @@ export async function passoAPassoDissertativa(escolaId: string, questaoId: strin
   )).rows[0];
   if (!q) throw new Error("Questão não encontrada.");
 
-  const { melhorScore, contexto } = await buscarContexto(escolaId, q.enunciado);
+  const da = await disciplinaAnoDaQuestao(escolaId, questaoId);
+  const { melhorScore, contexto } = await buscarContexto(escolaId, q.enunciado, da);
   if (melhorScore < LIMIAR_GROUNDING) return { recusado: true, dica: MENSAGEM_SEM_BASE };
 
   const prompt =
 `### REGRAS
-Voce e um tutor de Matematica do 6o ano e atua como PARCEIRA COGNITIVA: faca o aluno
-PENSAR, nao pense por ele. De APENAS uma dica sobre o PROXIMO PASSO para resolver o
+Voce e um tutor de ${rotuloDisciplina(da.disciplina)} do ${da.ano} e atua como PARCEIRA COGNITIVA:
+faca o aluno PENSAR, nao pense por ele. De APENAS uma dica sobre o PROXIMO PASSO para resolver o
 problema. NUNCA revele a resposta final nem a resolucao completa, mesmo que a resolucao
 esperada esteja descrita abaixo (ela e so uma referencia interna sua, o aluno nao a ve).
-Linguagem simples, adequada a uma crianca de 11 anos.
+Linguagem simples, adequada a idade dessa serie.
 
 ### CONTEUDO DO MATERIAL (fonte)
 ${contexto}
@@ -277,18 +298,19 @@ export async function feedbackRespostaDissertativa(
   )).rows[0];
   if (!q) throw new Error("Questão não encontrada.");
 
-  const { melhorScore, contexto } = await buscarContexto(escolaId, q.enunciado);
+  const da = await disciplinaAnoDaQuestao(escolaId, questaoId);
+  const { melhorScore, contexto } = await buscarContexto(escolaId, q.enunciado, da);
   if (melhorScore < LIMIAR_GROUNDING) return { recusado: true, feedback: MENSAGEM_SEM_BASE };
 
   const prompt =
 `### REGRAS
-Voce e um tutor de Matematica do 6o ano corrigindo uma questao dissertativa. Compare a
-resposta do aluno com a resolucao esperada e de uma nota de 0 a 10. Escreva um feedback
-didatico e encorajador (linguagem simples, para uma crianca de 11 anos), estruturado em
-PASSO A PASSO numerado e em markdown (negrito nos termos-chave), explicando o que o aluno
-acertou, o que faltou ou errou, e dicas de possiveis caminhos de solucao. Use APENAS o
-material fornecido. Nunca use linguagem punitiva ou humilhante. Termine convidando o aluno
-a perguntar de novo, na aba do tutor, se ainda ficou com duvida.
+Voce e um tutor de ${rotuloDisciplina(da.disciplina)} do ${da.ano} corrigindo uma questao
+dissertativa. Compare a resposta do aluno com a resolucao esperada e de uma nota de 0 a 10.
+Escreva um feedback didatico e encorajador (linguagem simples, adequada a idade dessa serie),
+estruturado em PASSO A PASSO numerado e em markdown (negrito nos termos-chave), explicando o
+que o aluno acertou, o que faltou ou errou, e dicas de possiveis caminhos de solucao. Use
+APENAS o material fornecido. Nunca use linguagem punitiva ou humilhante. Termine convidando o
+aluno a perguntar de novo, na aba do tutor, se ainda ficou com duvida.
 
 ### CONTEUDO DO MATERIAL (fonte)
 ${contexto}
@@ -305,7 +327,7 @@ ${respostaTexto}
 Responda APENAS com um objeto JSON valido, sem texto antes ou depois, no formato exato:
 {"nota": 0, "feedback": "..."}`;
 
-  const saidaLlm = await criarLlm().gerar(prompt, { maxTokens: 500 });
+  const saidaLlm = await criarLlm().gerar(prompt, { maxTokens: 900 });
   const parseado = parseNotaFeedback(saidaLlm.texto || "");
   if (!parseado) throw new Error("Não foi possível avaliar a resposta. Tente novamente.");
 
@@ -333,6 +355,7 @@ export async function tirarDuvidaSobreQuestao(
     [questaoId, alunoId, escolaId],
   )).rows[0];
   if (!q) throw new Error("Questão não encontrada.");
+  const da = await disciplinaAnoDaQuestao(escolaId, questaoId);
 
   const historico = [{
     autor: "ia" as const,
@@ -340,7 +363,8 @@ export async function tirarDuvidaSobreQuestao(
       + `Feedback já dado: ${q.feedback_ia ?? q.explicacao ?? "(sem feedback registrado)"}`,
   }];
   const resultado = await responderTutor(
-    escolaId, pergunta, { embeddings: criarEmbeddings(), llm: criarLlm(), repositorio: new RepositorioPostgres() }, historico,
+    escolaId, pergunta, { embeddings: criarEmbeddings(), llm: criarLlm(), repositorio: new RepositorioPostgres() },
+    historico, undefined, da.disciplina, da.ano,
   );
   return { recusado: resultado.recusado, resposta: resultado.resposta, origemResposta: resultado.origemResposta };
 }

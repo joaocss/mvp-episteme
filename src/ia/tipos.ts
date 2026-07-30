@@ -37,14 +37,18 @@ export interface TrechoBncc {
   score: number;
 }
 
+// Filtro de disciplina/serie (Fase 7: multi-serie/multi-disciplina). Ambos
+// opcionais; omitir = busca sem filtro (comportamento anterior).
+export interface FiltroConteudo { disciplina?: string; ano?: string }
+
 // Repositorio dos trechos: em memoria (demo/testes) ou no Supabase/pgvector.
 export interface RepositorioTrechos {
   inserir(escolaId: string, chunks: ChunkParaInserir[]): Promise<void>;
-  buscar(escolaId: string, consulta: number[], limite: number): Promise<TrechoRecuperado[]>;
+  buscar(escolaId: string, consulta: number[], limite: number, filtro?: FiltroConteudo): Promise<TrechoRecuperado[]>;
   // Opcional: classifica um vetor na habilidade BNCC mais proxima.
-  classificarBncc?(consulta: number[]): Promise<string | null>;
+  classificarBncc?(consulta: number[], filtro?: FiltroConteudo): Promise<string | null>;
   // Opcional: busca habilidades BNCC proximas do vetor, com score (2a camada de grounding).
-  buscarBncc?(consulta: number[], limite: number): Promise<TrechoBncc[]>;
+  buscarBncc?(consulta: number[], limite: number, filtro?: FiltroConteudo): Promise<TrechoBncc[]>;
 }
 
 export interface ChunkParaInserir {

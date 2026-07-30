@@ -5,9 +5,10 @@ import { useState } from "react";
 const inp = "w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#7a6aa5]";
 const btn = "rounded-md bg-[#3B2C63] px-3 py-2 text-sm font-medium text-white hover:bg-[#2f2350] disabled:opacity-50";
 
-export default function ConfiguracoesForm({ logoUrl, notaMaxima, notaMinimaAprovacao }: {
-  logoUrl: string | null; notaMaxima: number; notaMinimaAprovacao: number;
+export default function ConfiguracoesForm({ nome, logoUrl, notaMaxima, notaMinimaAprovacao }: {
+  nome: string; logoUrl: string | null; notaMaxima: number; notaMinimaAprovacao: number;
 }) {
+  const [nomeEscola, setNomeEscola] = useState(nome);
   const [logo, setLogo] = useState(logoUrl ?? "");
   const [max, setMax] = useState(String(notaMaxima));
   const [min, setMin] = useState(String(notaMinimaAprovacao));
@@ -19,7 +20,7 @@ export default function ConfiguracoesForm({ logoUrl, notaMaxima, notaMinimaAprov
     setMsg(""); setSalvo(false);
     const r = await fetch("/api/gestor/configuracoes", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ logoUrl: logo || null, notaMaxima: Number(max), notaMinimaAprovacao: Number(min) }),
+      body: JSON.stringify({ nome: nomeEscola, logoUrl: logo || null, notaMaxima: Number(max), notaMinimaAprovacao: Number(min) }),
     });
     if (!r.ok) { const d = await r.json().catch(() => ({})); setMsg(d.erro ?? "Erro ao salvar."); return; }
     setSalvo(true);
@@ -27,6 +28,10 @@ export default function ConfiguracoesForm({ logoUrl, notaMaxima, notaMinimaAprov
 
   return (
     <form onSubmit={salvar} className="max-w-md space-y-4 cartao p-5">
+      <div>
+        <label className="block text-sm font-medium text-grafite">Nome da escola</label>
+        <input value={nomeEscola} onChange={(e) => setNomeEscola(e.target.value)} required className={inp} />
+      </div>
       <div>
         <label className="block text-sm font-medium text-grafite">Logo da escola (URL da imagem)</label>
         <input value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="https://…" className={inp} />
