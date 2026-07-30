@@ -8,6 +8,7 @@ import { RepositorioPostgres } from "../../../src/rag/repositorioPostgres";
 import { lerToken } from "../../../lib/sessao";
 import {
   criarSessao, registrarInteracao, registrarFontes, registrarGuardrails, registrarAuditoria,
+  buscarHistoricoRecente,
 } from "../../../src/rag/repositorioConversas";
 
 export const runtime = "nodejs";
@@ -50,8 +51,11 @@ export async function POST(requisicao: Request) {
   // Sessao de conversa (o chat reusa o id retornado).
   let sessaoId = typeof corpo.sessaoId === "string" && UUID.test(corpo.sessaoId) ? corpo.sessaoId : "";
   let interacaoAluno: string | null = null;
+  let historico: { autor: "aluno" | "ia"; conteudo: string }[] = [];
   try {
     if (!sessaoId) sessaoId = await criarSessao(escolaId, alunoId);
+    // Memoria de contexto (Fase 4): so traz turnos dentro do TTL de ~7 dias.
+    else historico = await buscarHistoricoRecente(escolaId, sessaoId);
     interacaoAluno = await registrarInteracao({
       escolaId, sessaoId, autor: "aluno", conteudo: pergunta.trim(), traceId,
     });
@@ -64,7 +68,7 @@ export async function POST(requisicao: Request) {
   const inicio = Date.now();
   let resultado;
   try {
-    resultado = await responder(escolaId, pergunta.trim(), obterDependencias());
+    resultado = await responder(escolaId, pergunta.trim(), obterDependencias(), historico);
   } catch (e) {
     console.error("[tutor]", e);
     return NextResponse.json({ erro: "falha ao processar" }, { status: 500 });

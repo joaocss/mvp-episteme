@@ -13,6 +13,24 @@ export async function criarSessao(escolaId: string, alunoId: string): Promise<st
   return rows[0].id;
 }
 
+export interface MensagemHistorico { autor: "aluno" | "ia"; conteudo: string }
+
+// Contexto da sessao para o prompt do tutor: so traz interacoes dentro do TTL
+// de memoria (Fase 4); fora dele a conversa continua visivel no historico,
+// mas nao e usada como contexto (sessao "esfriou").
+export async function buscarHistoricoRecente(
+  escolaId: string, sessaoId: string, ttlDias = 7, limiteInteracoes = 20,
+): Promise<MensagemHistorico[]> {
+  const { rows } = await pool.query(
+    `select autor, conteudo from interacoes
+     where escola_id = $1 and sessao_id = $2 and criado_em > now() - ($3 || ' days')::interval
+     order by criado_em desc
+     limit $4`,
+    [escolaId, sessaoId, ttlDias, limiteInteracoes],
+  );
+  return rows.reverse().map((r) => ({ autor: r.autor, conteudo: r.conteudo }));
+}
+
 export interface DadosInteracao {
   escolaId: string;
   sessaoId: string;

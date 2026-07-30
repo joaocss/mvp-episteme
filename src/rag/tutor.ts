@@ -62,17 +62,27 @@ function analisarPedidoQuestoes(pergunta: string): { pedido: boolean; formato: "
   return { pedido, formato };
 }
 
-function montarPrompt(regras: string, pergunta: string, trechos: TrechoRecuperado[]): string {
+export interface TurnoHistorico { autor: "aluno" | "ia"; conteudo: string }
+
+function montarPrompt(
+  regras: string, pergunta: string, trechos: TrechoRecuperado[], historico: TurnoHistorico[],
+): string {
   const contexto = trechos
     .map((t) => `[${(t.metadados as any).codigo_bncc ?? ""}] ${(t.metadados as any).titulo ?? ""}: ${t.texto}`)
     .join("\n");
-  return `### REGRAS\n${regras}\n\n### CONTEUDO DO MATERIAL (fonte)\n${contexto}\n\n### PEDIDO DO ALUNO\n${pergunta}\n`;
+  const conversaAnterior = historico.length
+    ? `### CONVERSA ANTERIOR (contexto, nao repita nem resuma)\n${historico
+        .map((h) => `${h.autor === "aluno" ? "Aluno" : "Tutor"}: ${h.conteudo}`)
+        .join("\n")}\n\n`
+    : "";
+  return `### REGRAS\n${regras}\n\n### CONTEUDO DO MATERIAL (fonte)\n${contexto}\n\n${conversaAnterior}### PEDIDO DO ALUNO\n${pergunta}\n`;
 }
 
 export async function responder(
   escolaId: string,
   pergunta: string,
   dep: Dependencias,
+  historico: TurnoHistorico[] = [],
 ): Promise<ResultadoTutor> {
   const eventos = guardrailEntrada(pergunta);
   const base: ResultadoTutor = { recusado: false, fontes: [], eventos, telemetria: { melhorScore: 0 } };
@@ -108,7 +118,7 @@ export async function responder(
   }
 
   const regras = analise.formato ? REGRAS_QUESTOES[analise.formato] : REGRAS_SISTEMA;
-  const prompt = montarPrompt(regras, perguntaSegura, fontes);
+  const prompt = montarPrompt(regras, perguntaSegura, fontes, historico);
   const saidaLlm = await dep.llm.gerar(prompt);
   const saida = guardrailSaida(saidaLlm.texto);
 

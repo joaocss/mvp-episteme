@@ -87,7 +87,7 @@ supabase db push         # aplica migrations no projeto CLOUD linkado
   `SESSION_SECRET`. Projeto Cloud linkado: ref **gkycodihvnnrfldibywy**.
 - **Nunca** commitar segredos. Rotacionar as credenciais de teste antes de dados reais.
 
-## Estado atual (última atualização: 29/07/2026)
+## Estado atual (última atualização: 30/07/2026)
 
 Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluído:
 
@@ -116,9 +116,18 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   evasão = sem resposta de prova nem interação com o tutor em ~14 dias).
   `middleware.ts` protege `/provas` e `/api/provas`.
 
+  - **Fase 4 — Memória de contexto:** ao continuar uma sessão existente (mesmo
+  `sessaoId`), `buscarHistoricoRecente` (`src/rag/repositorioConversas.ts`)
+  traz os turnos da conversa com `criado_em` dentro do TTL de 7 dias
+  (`now() - interval '7 days'`); `responder()` (`src/rag/tutor.ts`) recebe esse
+  histórico e o injeta no prompt em uma seção `### CONVERSA ANTERIOR` (nova
+  sessão ou sessão "fria", sem histórico dentro do TTL = seção omitida). O
+  histórico já persistido em `interacoes` continua visível para o aluno em
+  `/api/tutor/historico` e `/api/tutor/conversa` independente do TTL — o TTL só
+  afeta o que é usado como contexto do modelo, não a visibilidade.
+
 ## Roadmap (ordem do brief)
 
-- **Fase 4 — Memória de contexto:** TTL de ~7 dias e retomar conversa mantendo contexto.
 - **Imagens nas respostas:** react-markdown/SVG quando o RAG permitir.
 - **LGPD/segurança:** adiada por decisão do João — resolver ANTES de dados reais.
 
