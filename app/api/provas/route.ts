@@ -4,7 +4,9 @@ import { lerToken } from "../../../lib/sessao";
 import {
   listarProvasDisponiveis, proximaQuestao, registrarResposta, consultarGabarito, resultadoProva,
 } from "../../../src/bd/provas";
-import { feedbackQuestaoObjetiva, passoAPassoDissertativa, feedbackRespostaDissertativa } from "../../../src/rag/provas";
+import {
+  feedbackQuestaoObjetiva, passoAPassoDissertativa, feedbackRespostaDissertativa, tirarDuvidaSobreQuestao,
+} from "../../../src/rag/provas";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // feedback/correcao via IA pode demorar
@@ -67,6 +69,14 @@ export async function POST(requisicao: Request) {
         }
         const f = await feedbackRespostaDissertativa(esc, aluno, d.questaoId, d.resposta.trim());
         return NextResponse.json(f);
+      }
+
+      case "duvida-questao": {
+        if (!d.questaoId || typeof d.pergunta !== "string" || !d.pergunta.trim()) {
+          return NextResponse.json({ erro: "escreva sua dúvida" }, { status: 400 });
+        }
+        const r = await tirarDuvidaSobreQuestao(esc, aluno, d.questaoId, d.pergunta.trim());
+        return NextResponse.json(r);
       }
 
       case "resultado": {

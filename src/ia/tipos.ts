@@ -18,7 +18,9 @@ export interface RespostaLlm {
 
 export interface ProvedorLlm {
   readonly nome: string;
-  gerar(prompt: string, opcoes?: { maxTokens?: number }): Promise<RespostaLlm>;
+  // imagemBase64: data URL (ex.: "data:image/png;base64,...") de uma foto enviada
+  // pelo aluno junto da pergunta. Provedores sem suporte a visao podem ignorar.
+  gerar(prompt: string, opcoes?: { maxTokens?: number; imagemBase64?: string }): Promise<RespostaLlm>;
 }
 
 export interface TrechoRecuperado {
@@ -28,12 +30,21 @@ export interface TrechoRecuperado {
   score: number;
 }
 
+export interface TrechoBncc {
+  codigo: string;
+  descricao: string;
+  unidadeTematica: string | null;
+  score: number;
+}
+
 // Repositorio dos trechos: em memoria (demo/testes) ou no Supabase/pgvector.
 export interface RepositorioTrechos {
   inserir(escolaId: string, chunks: ChunkParaInserir[]): Promise<void>;
   buscar(escolaId: string, consulta: number[], limite: number): Promise<TrechoRecuperado[]>;
   // Opcional: classifica um vetor na habilidade BNCC mais proxima.
   classificarBncc?(consulta: number[]): Promise<string | null>;
+  // Opcional: busca habilidades BNCC proximas do vetor, com score (2a camada de grounding).
+  buscarBncc?(consulta: number[], limite: number): Promise<TrechoBncc[]>;
 }
 
 export interface ChunkParaInserir {

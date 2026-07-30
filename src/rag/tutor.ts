@@ -1,25 +1,64 @@
-// Pipeline do tutor: guardrail -> (PII) -> embedding -> busca -> grounding ->
-// prompt -> LLM -> guardrail de saida. Inclui modo "questoes de treino".
-import { ProvedorEmbeddings, ProvedorLlm, RepositorioTrechos, TrechoRecuperado } from "../ia/tipos";
+// Pipeline do tutor: guardrail -> (PII) -> embedding -> busca em camadas
+// (livro -> BNCC -> conhecimento geral) -> prompt -> LLM -> guardrail de
+// saida. Inclui modo "questoes de treino".
+import { ProvedorEmbeddings, ProvedorLlm, RepositorioTrechos, TrechoRecuperado, TrechoBncc } from "../ia/tipos";
 import { normalizar } from "../ia/texto";
 import {
   guardrailEntrada, guardrailSaida, minimizarPii, EventoGuardrail,
   MENSAGEM_SEGURANCA, MENSAGEM_SEM_BASE,
 } from "../ia/guardrails";
 
+// Limiar de grounding no LIVRO da escola. Usado tambem pelo modulo de Provas
+// (src/rag/provas.ts), que continua estritamente livro-only (nao usa BNCC nem
+// conhecimento geral como fallback: gerar/corrigir prova precisa de fonte certa).
 export const LIMIAR_GROUNDING = 0.12;
+// Limiar de grounding na BNCC (2a camada, so no chat livre do tutor).
+export const LIMIAR_BNCC = 0.15;
 const TOP_K = 3;
 
 // Parceira cognitiva (alinhado ao ensaio sobre regressao cognitiva): o tutor
 // faz o aluno pensar, da pistas antes da resposta e nao entrega tudo pronto.
+// Pede explicacao passo a passo, formatada em markdown, para ficar didatica.
 export const REGRAS_SISTEMA =
   "Voce e um tutor de Matematica do 6o ano e atua como PARCEIRA COGNITIVA: seu " +
   "papel e fazer o aluno PENSAR, nao pensar por ele. Responda em linguagem simples, " +
-  "adequada a uma crianca de 11 anos, passo a passo. Antes de dar a resposta pronta, " +
-  "incentive o aluno a tentar e ofereca pistas. Use APENAS o conteudo fornecido; se a " +
-  "resposta nao estiver nele, diga que nao encontrou no material e sugira falar com o " +
-  "professor. NUNCA entregue apenas a resposta final de uma tarefa avaliativa. Jamais " +
-  "use linguagem punitiva ou humilhante.";
+  "adequada a uma crianca de 11 anos. Estruture a explicacao em PASSO A PASSO " +
+  "numerado, um raciocinio por vez, usando markdown (negrito nos termos-chave, " +
+  "listas numeradas, formulas entre crases quando ajudar). Antes de dar a resposta " +
+  "pronta, incentive o aluno a tentar e ofereca pistas. NUNCA entregue apenas a " +
+  "resposta final de uma tarefa avaliativa. Jamais use linguagem punitiva ou " +
+  "humilhante. Ao final, convide o aluno a perguntar de novo caso ainda tenha " +
+  "duvida (ex.: 'Ficou alguma parte confusa? Pode perguntar de novo.').";
+
+// Complemento quando ha conteudo do LIVRO da escola: usar so o que foi fornecido.
+const REGRA_FONTE_LIVRO =
+  "Use o CONTEUDO DO MATERIAL (fonte) como base principal da resposta; nao invente " +
+  "nada que contradiga o livro da escola.";
+
+// Complemento quando so ha a BNCC (sem trecho do livro): a resposta pode ir alem
+// da habilidade descrita, mas deve deixar isso explicito.
+const REGRA_FONTE_BNCC =
+  "O livro da escola nao tem um trecho especifico sobre esse assunto, mas ele esta " +
+  "dentro da habilidade da BNCC listada em CONTEUDO DO MATERIAL (fonte). Explique com " +
+  "base nessa habilidade. Comece a resposta com uma linha curta avisando que essa " +
+  "duvida nao esta no livro da turma, mas faz parte do que a BNCC espera para o ano, " +
+  "e que vale conferir com o professor.";
+
+// Complemento quando NEM o livro NEM a BNCC tem algo relacionado: conhecimento geral.
+const REGRA_FONTE_GERAL =
+  "Nao ha trecho do livro da escola nem habilidade da BNCC relacionados a essa duvida. " +
+  "Responda mesmo assim, com seu conhecimento geral de Matematica do 6o ano, mas " +
+  "comece a resposta com uma linha curta avisando que isso nao esta no material " +
+  "oficial da escola e sugerindo confirmar com o professor.";
+
+// Complemento quando o aluno envia uma foto/imagem junto da pergunta (Fase 6:
+// tutor multimodal) e nem o livro nem a BNCC tem um trecho especifico: a foto
+// enviada pelo aluno vira a fonte principal.
+const REGRA_FONTE_IMAGEM =
+  "O aluno enviou uma foto/imagem junto com a pergunta. Observe a imagem com atencao " +
+  "e use-a como base principal da explicacao, mesmo que o livro da escola nao tenha um " +
+  "trecho especifico sobre esse conteudo. Comece a resposta com uma linha curta avisando " +
+  "que a explicacao e baseada na imagem enviada, nao no material oficial da escola.";
 
 const REGRAS_QUESTOES: Record<"multipla" | "objetiva", string> = {
   multipla:
@@ -41,6 +80,8 @@ export interface Dependencias {
   repositorio: RepositorioTrechos;
 }
 
+export type OrigemResposta = "livro" | "bncc" | "conhecimento_geral" | "imagem";
+
 export interface ResultadoTutor {
   recusado: boolean;
   motivo?: string;
@@ -48,6 +89,7 @@ export interface ResultadoTutor {
   opcoes?: string[];
   tema?: string;
   competenciaBncc?: string;
+  origemResposta?: OrigemResposta;
   fontes: TrechoRecuperado[];
   eventos: EventoGuardrail[];
   telemetria: { melhorScore: number; modelo?: string; tokensEntrada?: number; tokensSaida?: number };
@@ -64,18 +106,28 @@ function analisarPedidoQuestoes(pergunta: string): { pedido: boolean; formato: "
 
 export interface TurnoHistorico { autor: "aluno" | "ia"; conteudo: string }
 
-function montarPrompt(
-  regras: string, pergunta: string, trechos: TrechoRecuperado[], historico: TurnoHistorico[],
-): string {
-  const contexto = trechos
+function contextoDoLivro(trechos: TrechoRecuperado[]): string {
+  return trechos
     .map((t) => `[${(t.metadados as any).codigo_bncc ?? ""}] ${(t.metadados as any).titulo ?? ""}: ${t.texto}`)
     .join("\n");
+}
+
+function contextoDaBncc(trechos: TrechoBncc[]): string {
+  return trechos.map((t) => `[${t.codigo}] ${t.unidadeTematica ?? ""}: ${t.descricao}`).join("\n");
+}
+
+function montarPrompt(
+  regras: string, regraFonte: string, pergunta: string, contexto: string, historico: TurnoHistorico[],
+): string {
   const conversaAnterior = historico.length
     ? `### CONVERSA ANTERIOR (contexto, nao repita nem resuma)\n${historico
         .map((h) => `${h.autor === "aluno" ? "Aluno" : "Tutor"}: ${h.conteudo}`)
         .join("\n")}\n\n`
     : "";
-  return `### REGRAS\n${regras}\n\n### CONTEUDO DO MATERIAL (fonte)\n${contexto}\n\n${conversaAnterior}### PEDIDO DO ALUNO\n${pergunta}\n`;
+  const blocoContexto = contexto
+    ? `### CONTEUDO DO MATERIAL (fonte)\n${contexto}\n\n`
+    : "";
+  return `### REGRAS\n${regras}\n\n${regraFonte}\n\n${blocoContexto}${conversaAnterior}### PEDIDO DO ALUNO\n${pergunta}\n`;
 }
 
 export async function responder(
@@ -83,6 +135,7 @@ export async function responder(
   pergunta: string,
   dep: Dependencias,
   historico: TurnoHistorico[] = [],
+  imagemBase64?: string,
 ): Promise<ResultadoTutor> {
   const eventos = guardrailEntrada(pergunta);
   const base: ResultadoTutor = { recusado: false, fontes: [], eventos, telemetria: { melhorScore: 0 } };
@@ -113,18 +166,59 @@ export async function responder(
     catch { /* etiquetagem best-effort */ }
   }
 
-  if (melhorScore < LIMIAR_GROUNDING) {
-    return { ...base, recusado: true, motivo: "sem_base", resposta: MENSAGEM_SEM_BASE };
+  // Pedido de questoes de treino: mantem grounding estrito no livro (nunca
+  // inventa exercicio sem fonte). Chat livre segue para as camadas BNCC/geral.
+  if (analise.formato) {
+    if (melhorScore < LIMIAR_GROUNDING) {
+      return { ...base, recusado: true, motivo: "sem_base", resposta: MENSAGEM_SEM_BASE };
+    }
+    const prompt = montarPrompt(
+      REGRAS_QUESTOES[analise.formato], REGRA_FONTE_LIVRO, perguntaSegura, contextoDoLivro(fontes), historico,
+    );
+    const saidaLlm = await dep.llm.gerar(prompt);
+    const saida = guardrailSaida(saidaLlm.texto);
+    return {
+      ...base, resposta: saida.texto, origemResposta: "livro", eventos: [...eventos, ...saida.eventos],
+      telemetria: { melhorScore: base.telemetria.melhorScore, modelo: saidaLlm.modelo,
+        tokensEntrada: saidaLlm.tokensEntrada, tokensSaida: saidaLlm.tokensSaida },
+    };
   }
 
-  const regras = analise.formato ? REGRAS_QUESTOES[analise.formato] : REGRAS_SISTEMA;
-  const prompt = montarPrompt(regras, perguntaSegura, fontes, historico);
-  const saidaLlm = await dep.llm.gerar(prompt);
+  // Chat livre: camada 1 (livro) -> camada 2 (BNCC) -> camada 3 (conhecimento geral).
+  let contexto = "";
+  let regraFonte = REGRA_FONTE_LIVRO;
+  let origemResposta: OrigemResposta = "livro";
+
+  if (melhorScore >= LIMIAR_GROUNDING) {
+    contexto = contextoDoLivro(fontes);
+  } else {
+    let trechosBncc: TrechoBncc[] = [];
+    if (dep.repositorio.buscarBncc) {
+      try { trechosBncc = await dep.repositorio.buscarBncc(vetor, TOP_K); } catch { /* fallback best-effort */ }
+    }
+    const melhorBncc = trechosBncc[0]?.score ?? 0;
+    if (melhorBncc >= LIMIAR_BNCC) {
+      contexto = contextoDaBncc(trechosBncc);
+      regraFonte = REGRA_FONTE_BNCC;
+      origemResposta = "bncc";
+    } else if (imagemBase64) {
+      // Nem livro nem BNCC, mas o aluno mandou uma foto: ela vira a fonte.
+      regraFonte = REGRA_FONTE_IMAGEM;
+      origemResposta = "imagem";
+    } else {
+      regraFonte = REGRA_FONTE_GERAL;
+      origemResposta = "conhecimento_geral";
+    }
+  }
+
+  const prompt = montarPrompt(REGRAS_SISTEMA, regraFonte, perguntaSegura, contexto, historico);
+  const saidaLlm = await dep.llm.gerar(prompt, imagemBase64 ? { imagemBase64 } : undefined);
   const saida = guardrailSaida(saidaLlm.texto);
 
   return {
     ...base,
     resposta: saida.texto,
+    origemResposta,
     eventos: [...eventos, ...saida.eventos],
     telemetria: {
       melhorScore: base.telemetria.melhorScore,

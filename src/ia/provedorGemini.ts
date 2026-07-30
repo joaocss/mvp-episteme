@@ -59,7 +59,7 @@ export class LlmGemini implements ProvedorLlm {
   readonly nome = MODELO_LLM;
   constructor(private readonly chave = process.env.LLM_API_KEY ?? "") {}
 
-  async gerar(prompt: string, opcoes?: { maxTokens?: number }): Promise<RespostaLlm> {
+  async gerar(prompt: string, opcoes?: { maxTokens?: number; imagemBase64?: string }): Promise<RespostaLlm> {
     const dados = await requisitar(
       `${BASE_API}/models/${MODELO_LLM}:generateContent`,
       this.chave,

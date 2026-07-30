@@ -47,10 +47,13 @@ export class LlmOpenAI implements ProvedorLlm {
   readonly nome = MODELO_LLM;
   constructor(private readonly chave = process.env.OPENAI_API_KEY ?? "") {}
 
-  async gerar(prompt: string, opcoes?: { maxTokens?: number }): Promise<RespostaLlm> {
+  async gerar(prompt: string, opcoes?: { maxTokens?: number; imagemBase64?: string }): Promise<RespostaLlm> {
+    const content = opcoes?.imagemBase64
+      ? [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: opcoes.imagemBase64 } }]
+      : prompt;
     const d = await requisitar("/chat/completions", this.chave, {
       model: MODELO_LLM,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content }],
       temperature: 0.3,
       max_tokens: opcoes?.maxTokens ?? 500,
     });

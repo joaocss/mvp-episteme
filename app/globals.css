@@ -40,4 +40,14 @@
   .cartao {
     @apply rounded-xl border border-slate-200 bg-white shadow-cartao;
   }
+
+  /* Formatacao das respostas em markdown do tutor (passo a passo, listas, negrito). */
+  .prose-tutor :first-child { @apply mt-0; }
+  .prose-tutor p { @apply mb-2 last:mb-0; }
+  .prose-tutor ol { @apply mb-2 list-decimal space-y-1 pl-5; }
+  .prose-tutor ul { @apply mb-2 list-disc space-y-1 pl-5; }
+  .prose-tutor strong { @apply font-semibold text-roxo-escuro; }
+  .prose-tutor code {
+    @apply rounded bg-slate-200/70 px-1 py-0.5 font-mono text-[0.85em];
+  }
 }

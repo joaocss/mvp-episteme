@@ -11,7 +11,7 @@ import { criarLlm } from "../ia/fabricaLlm";
 import { RepositorioPostgres } from "./repositorioPostgres";
 import { guardrailEntrada, guardrailSaida, MENSAGEM_SEGURANCA, MENSAGEM_SEM_BASE } from "../ia/guardrails";
 import { registrarGuardrails } from "./repositorioConversas";
-import { LIMIAR_GROUNDING } from "./tutor";
+import { LIMIAR_GROUNDING, responder as responderTutor } from "./tutor";
 import { Alternativa, QuestaoParaInserir, TipoQuestao, criarProvaRascunho, inserirQuestoes, salvarFeedbackIa } from "../bd/provas";
 
 export class ErroSemBase extends Error {}
@@ -179,8 +179,10 @@ export async function feedbackQuestaoObjetiva(
 `### REGRAS
 Voce e um tutor de Matematica do 6o ano. Explique de forma didatica e encorajadora, em
 linguagem simples para uma crianca de 11 anos, por que a alternativa correta esta certa e,
-se o aluno errou, onde o raciocinio dele provavelmente se desviou. Use APENAS o material
-fornecido. Nunca use linguagem punitiva ou humilhante.
+se o aluno errou, onde o raciocinio dele provavelmente se desviou. Estruture a explicacao em
+PASSO A PASSO numerado, em markdown (negrito nos termos-chave, lista numerada). Use APENAS o
+material fornecido. Nunca use linguagem punitiva ou humilhante. Termine convidando o aluno a
+perguntar de novo, na aba do tutor, se ainda ficou com duvida.
 
 ### CONTEUDO DO MATERIAL (fonte)
 ${contexto}
@@ -282,9 +284,11 @@ export async function feedbackRespostaDissertativa(
 `### REGRAS
 Voce e um tutor de Matematica do 6o ano corrigindo uma questao dissertativa. Compare a
 resposta do aluno com a resolucao esperada e de uma nota de 0 a 10. Escreva um feedback
-didatico e encorajador (linguagem simples, para uma crianca de 11 anos), explicando o que
-o aluno acertou, o que faltou ou errou, e dicas de possiveis caminhos de solucao. Use
-APENAS o material fornecido. Nunca use linguagem punitiva ou humilhante.
+didatico e encorajador (linguagem simples, para uma crianca de 11 anos), estruturado em
+PASSO A PASSO numerado e em markdown (negrito nos termos-chave), explicando o que o aluno
+acertou, o que faltou ou errou, e dicas de possiveis caminhos de solucao. Use APENAS o
+material fornecido. Nunca use linguagem punitiva ou humilhante. Termine convidando o aluno
+a perguntar de novo, na aba do tutor, se ainda ficou com duvida.
 
 ### CONTEUDO DO MATERIAL (fonte)
 ${contexto}
@@ -308,4 +312,35 @@ Responda APENAS com um objeto JSON valido, sem texto antes ou depois, no formato
   const saida = guardrailSaida(parseado.feedback);
   await salvarFeedbackIa(escolaId, questaoId, alunoId, saida.texto, parseado.nota);
   return { recusado: false, nota: parseado.nota, feedback: saida.texto };
+}
+
+// ----------------------------------------- duvida de acompanhamento (follow-up)
+
+// Se o aluno nao entendeu o feedback de uma questao, ele pode continuar
+// perguntando sobre ela. Reusa o pipeline do tutor (mesmos guardrails e
+// cascata livro -> BNCC -> conhecimento geral), passando a questao e o
+// feedback ja dado como contexto da conversa.
+export interface DuvidaQuestao { recusado: boolean; resposta?: string; origemResposta?: string }
+
+export async function tirarDuvidaSobreQuestao(
+  escolaId: string, alunoId: string, questaoId: string, pergunta: string,
+): Promise<DuvidaQuestao> {
+  const q = (await pool.query(
+    `select q.enunciado, q.gabarito, q.explicacao, r.feedback_ia, r.resposta_aluno
+     from questoes q
+     left join respostas r on r.questao_id = q.id and r.aluno_id = $2
+     where q.id = $1 and q.escola_id = $3`,
+    [questaoId, alunoId, escolaId],
+  )).rows[0];
+  if (!q) throw new Error("Questão não encontrada.");
+
+  const historico = [{
+    autor: "ia" as const,
+    conteudo: `Questão: ${q.enunciado}\nResposta do aluno: ${q.resposta_aluno ?? "(ainda não respondida)"}\n`
+      + `Feedback já dado: ${q.feedback_ia ?? q.explicacao ?? "(sem feedback registrado)"}`,
+  }];
+  const resultado = await responderTutor(
+    escolaId, pergunta, { embeddings: criarEmbeddings(), llm: criarLlm(), repositorio: new RepositorioPostgres() }, historico,
+  );
+  return { recusado: resultado.recusado, resposta: resultado.resposta, origemResposta: resultado.origemResposta };
 }

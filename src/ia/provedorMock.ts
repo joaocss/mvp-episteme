@@ -34,11 +34,11 @@ export class EmbeddingsMock implements ProvedorEmbeddings {
 
 export class LlmMock implements ProvedorLlm {
   readonly nome = "mock-llm";
-  async gerar(prompt: string, _opcoes?: { maxTokens?: number }): Promise<RespostaLlm> {
+  async gerar(prompt: string, _opcoes?: { maxTokens?: number; imagemBase64?: string }): Promise<RespostaLlm> {
     // Nao ha modelo de verdade: devolve um texto que confirma que o pipeline
     // montou o contexto corretamente.
     const trechoContexto = (prompt.split("### CONTEUDO DO MATERIAL (fonte)")[1] ?? "")
-      .split("### PERGUNTA")[0]
+      .split("### PEDIDO DO ALUNO")[0]
       .trim()
       .slice(0, 160);
     return {

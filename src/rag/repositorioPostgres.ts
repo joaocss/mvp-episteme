@@ -3,7 +3,7 @@
 // direito de escrita — evita depender do formato de chave do PostgREST. O RLS
 // permanece ativo; o app (Next.js) continuara usando o cliente com JWT do usuario.
 import { pool } from "../bd/pool";
-import { ChunkParaInserir, RepositorioTrechos, TrechoRecuperado } from "../ia/tipos";
+import { ChunkParaInserir, RepositorioTrechos, TrechoRecuperado, TrechoBncc } from "../ia/tipos";
 
 function vetorLiteral(v: number[]): string {
   return `[${v.join(",")}]`;
@@ -49,6 +49,16 @@ export class RepositorioPostgres implements RepositorioTrechos {
   async classificarBncc(consulta: number[]): Promise<string | null> {
     const { rows } = await pool.query(`select buscar_bncc($1::vector) as codigo`, [vetorLiteral(consulta)]);
     return rows[0]?.codigo ?? null;
+  }
+
+  async buscarBncc(consulta: number[], limite: number): Promise<TrechoBncc[]> {
+    const { rows } = await pool.query(
+      "select codigo, descricao, unidade_tematica, score from buscar_bncc_similar($1::vector, $2)",
+      [vetorLiteral(consulta), limite],
+    );
+    return rows.map((r) => ({
+      codigo: r.codigo, descricao: r.descricao, unidadeTematica: r.unidade_tematica ?? null, score: Number(r.score),
+    }));
   }
 
   async encerrar(): Promise<void> {

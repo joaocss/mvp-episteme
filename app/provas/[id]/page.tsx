@@ -6,7 +6,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
 import { Botao } from "../../componentes/ui/Botao";
+import DuvidaQuestao from "./DuvidaQuestao";
 
 type TipoQuestao = "objetiva" | "dissertativa";
 interface Alternativa { letra: string; texto: string; }
@@ -209,10 +211,11 @@ export default function PaginaProva() {
           </div>
 
           {feedback?.feedback && (
-            <p className="cartao p-3 text-sm text-slate-700">
-              {feedback.nota !== undefined && <span className="mb-1 block font-medium text-roxo">Nota: {feedback.nota}/10</span>}
-              {feedback.feedback}
-            </p>
+            <div className="cartao space-y-2 p-3 text-sm text-slate-700">
+              {feedback.nota !== undefined && <span className="block font-medium text-roxo">Nota: {feedback.nota}/10</span>}
+              <div className="prose-tutor"><ReactMarkdown>{feedback.feedback}</ReactMarkdown></div>
+              <DuvidaQuestao questaoId={questao.id} />
+            </div>
           )}
           {gabarito && (
             <p className="cartao p-3 text-sm text-slate-700">
@@ -269,7 +272,12 @@ function ItemResultado({ questao }: { questao: QuestaoResultado }) {
       ) : (
         <div className="mt-2 space-y-2 text-sm text-slate-700">
           <p><span className="font-medium">Gabarito:</span> {questao.gabarito}</p>
-          {carregando ? <p className="text-slate-500">Gerando feedback…</p> : feedback && <p>{feedback}</p>}
+          {carregando ? <p className="text-slate-500">Gerando feedback…</p> : feedback && (
+            <>
+              <div className="prose-tutor"><ReactMarkdown>{feedback}</ReactMarkdown></div>
+              <DuvidaQuestao questaoId={questao.id} />
+            </>
+          )}
         </div>
       )}
     </div>

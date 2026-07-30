@@ -34,7 +34,7 @@ export async function POST(requisicao: Request) {
   if (!sessao) return NextResponse.json({ erro: "nao autenticado" }, { status: 401 });
   if (sessao.papel !== "aluno") return NextResponse.json({ erro: "acesso restrito a alunos" }, { status: 403 });
 
-  let corpo: { pergunta?: unknown; sessaoId?: unknown };
+  let corpo: { pergunta?: unknown; sessaoId?: unknown; imagemBase64?: unknown };
   try {
     corpo = await requisicao.json();
   } catch {
@@ -43,6 +43,18 @@ export async function POST(requisicao: Request) {
   const pergunta = corpo.pergunta;
   if (typeof pergunta !== "string" || !pergunta.trim()) {
     return NextResponse.json({ erro: "pergunta obrigatoria" }, { status: 400 });
+  }
+  // Imagem opcional (Fase 6: tutor multimodal). Limite generoso de ~6MB em base64
+  // (~4.5MB de imagem) para não estourar custo/latencia da chamada de visao.
+  let imagemBase64: string | undefined;
+  if (typeof corpo.imagemBase64 === "string" && corpo.imagemBase64.trim()) {
+    if (!/^data:image\/(png|jpe?g|webp);base64,/.test(corpo.imagemBase64)) {
+      return NextResponse.json({ erro: "formato de imagem inválido" }, { status: 400 });
+    }
+    if (corpo.imagemBase64.length > 6_000_000) {
+      return NextResponse.json({ erro: "imagem muito grande (máx. ~4,5MB)" }, { status: 400 });
+    }
+    imagemBase64 = corpo.imagemBase64;
   }
 
   const traceId = randomUUID();
@@ -68,7 +80,7 @@ export async function POST(requisicao: Request) {
   const inicio = Date.now();
   let resultado;
   try {
-    resultado = await responder(escolaId, pergunta.trim(), obterDependencias(), historico);
+    resultado = await responder(escolaId, pergunta.trim(), obterDependencias(), historico, imagemBase64);
   } catch (e) {
     console.error("[tutor]", e);
     return NextResponse.json({ erro: "falha ao processar" }, { status: 500 });
