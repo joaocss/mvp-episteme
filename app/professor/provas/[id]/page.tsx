@@ -20,7 +20,12 @@ export default async function PaginaProva({ params }: { params: Promise<{ id: st
   return (
     <main className="mx-auto max-w-3xl p-6">
       <Link href="/professor/provas" className="text-sm text-roxo hover:underline">← Voltar às provas</Link>
-      <h1 className="mt-2 text-2xl font-bold">{prova.titulo}</h1>
+      <div className="mt-2 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">{prova.titulo}</h1>
+        {prova.status !== "rascunho" && (
+          <Link href={`/professor/provas/${id}/corrigir`} className="text-sm text-roxo hover:underline">Corrigir respostas →</Link>
+        )}
+      </div>
       <p className="mt-1 text-slate-600">{prova.turma} — {prova.assunto}</p>
 
       <div className="mt-6">

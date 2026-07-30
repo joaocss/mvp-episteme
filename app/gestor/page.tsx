@@ -5,6 +5,7 @@ import { lerToken } from "../../lib/sessao";
 import {
   kpisGestor, perguntasPorDia, alunosMaisAtivos, mediaNotasPorTurma, taxaAprovacaoPorTurma, evasaoAlunos,
 } from "../../src/bd/gestor";
+import { obterConfigEscola } from "../../src/bd/configEscola";
 import { Marca } from "../componentes/Marca";
 import { variantesBotao } from "../componentes/ui/Botao";
 import GraficosGestor from "./GraficosGestor";
@@ -26,13 +27,14 @@ export default async function PaginaGestor() {
   const sessao = lerToken(armazem.get("sessao_aluno")?.value);
   if (!sessao || (sessao.papel !== "gestor" && sessao.papel !== "admin")) redirect("/login");
 
-  const [kpis, porDia, ativos, mediaNotas, aprovacao, evasao] = await Promise.all([
+  const [kpis, porDia, ativos, mediaNotas, aprovacao, evasao, config] = await Promise.all([
     kpisGestor(sessao.escolaId),
     perguntasPorDia(sessao.escolaId),
     alunosMaisAtivos(sessao.escolaId),
     mediaNotasPorTurma(sessao.escolaId),
     taxaAprovacaoPorTurma(sessao.escolaId),
     evasaoAlunos(sessao.escolaId),
+    obterConfigEscola(sessao.escolaId),
   ]);
 
   return (
@@ -45,6 +47,15 @@ export default async function PaginaGestor() {
               <Link href="/gestor/gestao" className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
                 Gestão / Cadastros
               </Link>
+              <Link href="/gestor/desempenho" className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
+                Desempenho
+              </Link>
+              <Link href="/gestor/logs" className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
+                Logs e Alertas
+              </Link>
+              <Link href="/gestor/configuracoes" className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
+                Configurações
+              </Link>
               <form action="/auth/sair" method="post">
                 <button type="submit" className="min-h-[44px] text-sm text-slate-500 hover:text-grafite">Sair</button>
               </form>
@@ -52,9 +63,15 @@ export default async function PaginaGestor() {
           }
         />
 
-        <div className="mt-6">
-          <h1 className="text-2xl font-bold text-grafite">Painel Gestor</h1>
-          <p className="text-sm text-slate-500">Visão geral da escola</p>
+        <div className="mt-6 flex items-center gap-3">
+          {config.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={config.logoUrl} alt="Logo da escola" className="h-10 w-auto rounded object-contain" />
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-grafite">Painel Gestor</h1>
+            <p className="text-sm text-slate-500">Visão geral da escola</p>
+          </div>
         </div>
 
         <section className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5" aria-label="Indicadores">

@@ -80,13 +80,34 @@ export default function FormulariosGestao({ turmas, professores }: { turmas: Opc
       </Cartao>
 
       <Cartao titulo="Novo aluno">
-        <form onSubmit={useForm((fd) => ({ acao: "aluno", nome: fd.get("nome"), email: fd.get("email"), senha: fd.get("senha"), turmaId: fd.get("turmaId") || undefined }))} className="space-y-2">
+        <form onSubmit={useForm((fd) => ({
+          acao: "aluno", nome: fd.get("nome"), email: fd.get("email"), senha: fd.get("senha"),
+          turmaId: fd.get("turmaId") || undefined, dataNascimento: fd.get("dataNascimento") || undefined,
+          enderecoFamilia: fd.get("enderecoFamilia") || undefined, estadoCivilPais: fd.get("estadoCivilPais") || undefined,
+          paisMoramJuntos: fd.get("paisMoramJuntos") === "" ? undefined : fd.get("paisMoramJuntos") === "sim",
+        }))} className="space-y-2">
           <input name="nome" placeholder="Nome" required className={inp} />
           <input name="email" type="email" placeholder="Email" required className={inp} />
           <input name="senha" type="text" placeholder="Senha inicial" required className={inp} />
+          <input name="dataNascimento" type="date" className={inp} />
           <select name="turmaId" className={inp}>
             <option value="">Matricular em turma (opcional)…</option>
             {turmas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+          </select>
+          <input name="enderecoFamilia" placeholder="Endereço da família (opcional)" className={inp} />
+          <select name="estadoCivilPais" defaultValue="" className={inp}>
+            <option value="">Estado civil dos pais (opcional)…</option>
+            <option value="casados">Casados</option>
+            <option value="uniao estavel">União estável</option>
+            <option value="divorciados">Divorciados</option>
+            <option value="separados">Separados</option>
+            <option value="viuvo(a)">Viúvo(a)</option>
+            <option value="solteiro(a)">Solteiro(a)</option>
+          </select>
+          <select name="paisMoramJuntos" defaultValue="" className={inp}>
+            <option value="">Pais moram juntos? (opcional)…</option>
+            <option value="sim">Sim</option>
+            <option value="nao">Não</option>
           </select>
           <button className={btn}>Criar aluno</button>
         </form>

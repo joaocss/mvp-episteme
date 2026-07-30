@@ -25,16 +25,25 @@ export async function excluirTurma(escolaId: string, id: string): Promise<void> 
   await pool.query(`delete from turmas where id = $2 and escola_id = $1`, [escolaId, id]);
 }
 
-export interface ExtrasUsuario { dataNascimento?: string | null; disciplinas?: string | null; }
+export interface ExtrasUsuario {
+  dataNascimento?: string | null;
+  disciplinas?: string | null;
+  enderecoFamilia?: string | null;
+  estadoCivilPais?: string | null;
+  paisMoramJuntos?: boolean | null;
+}
 
 export async function criarUsuario(
   escolaId: string, papel: "professor" | "aluno", nome: string, email: string, senha: string,
   extras: ExtrasUsuario = {},
 ): Promise<string> {
   const { rows } = await pool.query(
-    `insert into usuarios (escola_id, papel, nome, email, senha_hash, data_nascimento, disciplinas)
-     values ($1,$2,$3,$4,$5,$6,$7) returning id`,
-    [escolaId, papel, nome, email, gerarHashSenha(senha), extras.dataNascimento || null, extras.disciplinas || null],
+    `insert into usuarios
+       (escola_id, papel, nome, email, senha_hash, data_nascimento, disciplinas,
+        endereco_familia, estado_civil_pais, pais_moram_juntos)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id`,
+    [escolaId, papel, nome, email, gerarHashSenha(senha), extras.dataNascimento || null, extras.disciplinas || null,
+     extras.enderecoFamilia || null, extras.estadoCivilPais || null, extras.paisMoramJuntos ?? null],
   );
   return rows[0].id;
 }
@@ -43,10 +52,54 @@ export async function editarUsuario(
   escolaId: string, id: string, nome: string, email: string, extras: ExtrasUsuario = {},
 ): Promise<void> {
   await pool.query(
-    `update usuarios set nome = $3, email = $4, data_nascimento = $5, disciplinas = $6
+    `update usuarios set nome = $3, email = $4, data_nascimento = $5, disciplinas = $6,
+       endereco_familia = $7, estado_civil_pais = $8, pais_moram_juntos = $9
      where id = $2 and escola_id = $1`,
-    [escolaId, id, nome, email, extras.dataNascimento || null, extras.disciplinas || null],
+    [escolaId, id, nome, email, extras.dataNascimento || null, extras.disciplinas || null,
+     extras.enderecoFamilia || null, extras.estadoCivilPais || null, extras.paisMoramJuntos ?? null],
   );
+}
+
+// ------------------------------------------------------------ responsaveis
+
+export interface Responsavel {
+  id: string; nome: string; parentesco: string; telefone: string | null; email: string | null;
+}
+
+export async function listarResponsaveis(escolaId: string, alunoId: string): Promise<Responsavel[]> {
+  const { rows } = await pool.query(
+    `select id, nome, parentesco, telefone, email from responsaveis
+     where escola_id = $1 and aluno_id = $2 order by criado_em`,
+    [escolaId, alunoId],
+  );
+  return rows;
+}
+
+export async function adicionarResponsavel(
+  escolaId: string, alunoId: string, nome: string, parentesco: string,
+  telefone: string | null, email: string | null,
+): Promise<string> {
+  const { rows } = await pool.query(
+    `insert into responsaveis (escola_id, aluno_id, nome, parentesco, telefone, email)
+     values ($1,$2,$3,$4,$5,$6) returning id`,
+    [escolaId, alunoId, nome, parentesco, telefone || null, email || null],
+  );
+  return rows[0].id;
+}
+
+export async function editarResponsavel(
+  escolaId: string, id: string, nome: string, parentesco: string,
+  telefone: string | null, email: string | null,
+): Promise<void> {
+  await pool.query(
+    `update responsaveis set nome = $3, parentesco = $4, telefone = $5, email = $6
+     where id = $2 and escola_id = $1`,
+    [escolaId, id, nome, parentesco, telefone || null, email || null],
+  );
+}
+
+export async function excluirResponsavel(escolaId: string, id: string): Promise<void> {
+  await pool.query(`delete from responsaveis where id = $2 and escola_id = $1`, [escolaId, id]);
 }
 
 export async function excluirUsuario(escolaId: string, id: string): Promise<void> {
@@ -106,10 +159,12 @@ export async function listarProfessores(escolaId: string): Promise<ProfessorList
 
 export interface AlunoLista {
   id: string; nome: string; email: string; turma: string | null; turmaId: string | null; dataNascimento: string | null;
+  enderecoFamilia: string | null; estadoCivilPais: string | null; paisMoramJuntos: boolean | null;
 }
 export async function listarAlunosGeral(escolaId: string): Promise<AlunoLista[]> {
   const { rows } = await pool.query(
-    `select u.id, u.nome, u.email, u.data_nascimento, t.id as turma_id, t.nome as turma
+    `select u.id, u.nome, u.email, u.data_nascimento, u.endereco_familia, u.estado_civil_pais, u.pais_moram_juntos,
+            t.id as turma_id, t.nome as turma
      from usuarios u
      left join matriculas m on m.aluno_id = u.id
      left join turmas t on t.id = m.turma_id
@@ -117,5 +172,7 @@ export async function listarAlunosGeral(escolaId: string): Promise<AlunoLista[]>
   return rows.map((r) => ({
     id: r.id, nome: r.nome, email: r.email, turma: r.turma, turmaId: r.turma_id ?? null,
     dataNascimento: r.data_nascimento ? new Date(r.data_nascimento).toISOString().slice(0, 10) : null,
+    enderecoFamilia: r.endereco_familia ?? null, estadoCivilPais: r.estado_civil_pais ?? null,
+    paisMoramJuntos: r.pais_moram_juntos ?? null,
   }));
 }

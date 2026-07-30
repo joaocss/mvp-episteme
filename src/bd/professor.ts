@@ -1,6 +1,9 @@
 // Consultas do painel do professor (Postgres direto), restritas aos alunos das
 // turmas em que o professor leciona.
 import { pool } from "./pool";
+import { desempenhoProvasProfessor } from "./notas";
+
+export { desempenhoProvasProfessor };
 
 
 export interface EstatProfessor {
@@ -83,6 +86,27 @@ export async function atividadePorAluno(professorId: string): Promise<AtividadeA
     perguntas: Number(r.perguntas) || 0,
     ultimaAtividade: r.ultima ? new Date(r.ultima).toLocaleString("pt-BR") : null,
   }));
+}
+
+export interface TurmaComAlunosProfessor { turmaId: string; turma: string; alunos: { id: string; nome: string }[]; }
+
+export async function alunosPorTurmaProfessor(professorId: string): Promise<TurmaComAlunosProfessor[]> {
+  const { rows } = await pool.query(
+    `select t.id as turma_id, t.nome as turma, u.id as aluno_id, u.nome as aluno
+     from professores_turmas pt
+     join turmas t on t.id = pt.turma_id
+     left join matriculas m on m.turma_id = t.id
+     left join usuarios u on u.id = m.aluno_id
+     where pt.professor_id = $1
+     order by t.nome, u.nome`,
+    [professorId],
+  );
+  const porTurma = new Map<string, TurmaComAlunosProfessor>();
+  for (const r of rows) {
+    if (!porTurma.has(r.turma_id)) porTurma.set(r.turma_id, { turmaId: r.turma_id, turma: r.turma, alunos: [] });
+    if (r.aluno_id) porTurma.get(r.turma_id)!.alunos.push({ id: r.aluno_id, nome: r.aluno });
+  }
+  return [...porTurma.values()];
 }
 
 export async function registrarAcessoProfessor(escolaId: string, professorId: string): Promise<void> {

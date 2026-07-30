@@ -1,5 +1,8 @@
-// Consultas do painel gestor (diretor/coordenador) — escopo da escola.
+// Consultas do painel gestor (diretor/coordenador) — escopo da escola inteira.
 import { pool } from "./pool";
+import { desempenhoProvasEscola } from "./notas";
+
+export { desempenhoProvasEscola };
 
 
 export interface KpisGestor {
@@ -93,6 +96,68 @@ export async function taxaAprovacaoPorTurma(escolaId: string, limiar = 6): Promi
     [escolaId, limiar],
   );
   return rows.map((r) => ({ turma: r.turma, aprovados: Number(r.aprovados) || 0, reprovados: Number(r.reprovados) || 0 }));
+}
+
+export interface TurmaComAlunos { turmaId: string; turma: string; alunos: { id: string; nome: string }[]; }
+
+export async function alunosPorTurmaEscola(escolaId: string): Promise<TurmaComAlunos[]> {
+  const { rows } = await pool.query(
+    `select t.id as turma_id, t.nome as turma, u.id as aluno_id, u.nome as aluno
+     from turmas t
+     left join matriculas m on m.turma_id = t.id
+     left join usuarios u on u.id = m.aluno_id
+     where t.escola_id = $1
+     order by t.nome, u.nome`,
+    [escolaId],
+  );
+  const porTurma = new Map<string, TurmaComAlunos>();
+  for (const r of rows) {
+    if (!porTurma.has(r.turma_id)) porTurma.set(r.turma_id, { turmaId: r.turma_id, turma: r.turma, alunos: [] });
+    if (r.aluno_id) porTurma.get(r.turma_id)!.alunos.push({ id: r.aluno_id, nome: r.aluno });
+  }
+  return [...porTurma.values()];
+}
+
+// ------------------------------------------------ logs/alertas (monitoramento)
+
+export interface AlertaEscola { aluno: string; turma: string; categoria: string; severidade: string; detalhe: string; quando: string; }
+
+export async function alertasEscola(escolaId: string, limite = 100): Promise<AlertaEscola[]> {
+  const { rows } = await pool.query(
+    `select u.nome as aluno, t.nome as turma, g.categoria, g.severidade, g.detalhe, g.criado_em
+     from guardrail_eventos g
+     join interacoes i on i.id = g.interacao_id
+     join sessoes_tutor s on s.id = i.sessao_id
+     join usuarios u on u.id = s.aluno_id
+     left join matriculas m on m.aluno_id = u.id
+     left join turmas t on t.id = m.turma_id
+     where g.escola_id = $1
+     order by (g.severidade = 'alta') desc, g.criado_em desc
+     limit $2`,
+    [escolaId, limite],
+  );
+  return rows.map((r) => ({
+    aluno: r.aluno, turma: r.turma ?? "—", categoria: r.categoria, severidade: r.severidade,
+    detalhe: r.detalhe, quando: new Date(r.criado_em).toLocaleString("pt-BR"),
+  }));
+}
+
+export interface EventoAuditoria { ator: string | null; acao: string; entidade: string | null; quando: string; }
+
+export async function auditoriaEscola(escolaId: string, limite = 100): Promise<EventoAuditoria[]> {
+  const { rows } = await pool.query(
+    `select u.nome as ator, a.acao, a.entidade, a.criado_em
+     from auditoria a
+     left join usuarios u on u.id = a.ator_id
+     where a.escola_id = $1
+     order by a.criado_em desc
+     limit $2`,
+    [escolaId, limite],
+  );
+  return rows.map((r) => ({
+    ator: r.ator ?? null, acao: r.acao, entidade: r.entidade ?? null,
+    quando: new Date(r.criado_em).toLocaleString("pt-BR"),
+  }));
 }
 
 export interface EvasaoTurma { turma: string; ativos: number; inativos: number; }

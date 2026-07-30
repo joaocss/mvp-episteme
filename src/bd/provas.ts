@@ -270,6 +270,7 @@ export interface QuestaoResultado {
   id: string; ordem: number; tipo: TipoQuestao; enunciado: string;
   respostaAluno: string | null; correta: boolean | null; nota: number | null;
   gabarito: string; explicacao: string | null; feedbackIa: string | null;
+  feedbackProfessor: string | null; corrigidaPeloProfessor: boolean;
 }
 export interface ResultadoProva {
   titulo: string; totalAcertos: number; totalErros: number; notaMedia: number; questoes: QuestaoResultado[];
@@ -284,7 +285,7 @@ export async function resultadoProva(escolaId: string, alunoId: string, provaId:
 
   const { rows } = await pool.query(
     `select q.id, q.ordem, q.tipo, q.enunciado, q.gabarito, q.explicacao,
-            r.resposta_aluno, r.correta, r.nota, r.feedback_ia
+            r.resposta_aluno, r.correta, r.nota_efetiva, r.feedback_ia, r.feedback_professor, r.nota_manual
      from questoes q
      join respostas r on r.questao_id = q.id and r.aluno_id = $2
      where q.prova_id = $3 and q.escola_id = $1
@@ -295,8 +296,10 @@ export async function resultadoProva(escolaId: string, alunoId: string, provaId:
 
   const questoes: QuestaoResultado[] = rows.map((r) => ({
     id: r.id, ordem: r.ordem, tipo: r.tipo, enunciado: r.enunciado,
-    respostaAluno: r.resposta_aluno, correta: r.correta, nota: r.nota !== null ? Number(r.nota) : null,
+    respostaAluno: r.resposta_aluno, correta: r.correta,
+    nota: r.nota_efetiva !== null ? Number(r.nota_efetiva) : null,
     gabarito: r.gabarito, explicacao: r.explicacao ?? null, feedbackIa: r.feedback_ia ?? null,
+    feedbackProfessor: r.feedback_professor ?? null, corrigidaPeloProfessor: r.nota_manual !== null,
   }));
   const objetivas = questoes.filter((q) => q.tipo === "objetiva");
   const totalAcertos = objetivas.filter((q) => q.correta === true).length;
@@ -305,6 +308,51 @@ export async function resultadoProva(escolaId: string, alunoId: string, provaId:
   const notaMedia = notas.length ? notas.reduce((a, b) => a + b, 0) / notas.length : 0;
 
   return { titulo: prova.titulo, totalAcertos, totalErros, notaMedia: Number(notaMedia.toFixed(2)), questoes };
+}
+
+// ---------------------------------------------------- correcao manual (professor)
+
+export async function corrigirManualmente(
+  escolaId: string, professorId: string, questaoId: string, alunoId: string,
+  notaManual: number, feedbackProfessor: string | null,
+): Promise<void> {
+  await pool.query(
+    `update respostas set nota_manual = $5, feedback_professor = $6, corrigido_por = $2, corrigido_em = now()
+     where questao_id = $3 and aluno_id = $4 and escola_id = $1
+       and questao_id in (
+         select id from questoes where prova_id in (
+           select id from provas where professor_id = $2 and escola_id = $1))`,
+    [escolaId, professorId, questaoId, alunoId, notaManual, feedbackProfessor || null],
+  );
+}
+
+export interface RespostaParaCorrigir {
+  questaoId: string; alunoId: string; aluno: string; enunciado: string; tipo: TipoQuestao;
+  respostaAluno: string | null; gabarito: string; notaAutomatica: number | null; notaManual: number | null;
+  feedbackIa: string | null; feedbackProfessor: string | null;
+}
+
+export async function respostasParaCorrecao(
+  escolaId: string, professorId: string, provaId: string,
+): Promise<RespostaParaCorrigir[]> {
+  const { rows } = await pool.query(
+    `select q.id as questao_id, r.aluno_id, u.nome as aluno, q.enunciado, q.tipo,
+            r.resposta_aluno, q.gabarito, r.nota as nota_automatica, r.nota_manual, r.feedback_ia, r.feedback_professor
+     from questoes q
+     join respostas r on r.questao_id = q.id
+     join usuarios u on u.id = r.aluno_id
+     join provas p on p.id = q.prova_id
+     where p.id = $3 and p.escola_id = $1 and p.professor_id = $2
+     order by q.ordem, u.nome`,
+    [escolaId, professorId, provaId],
+  );
+  return rows.map((r) => ({
+    questaoId: r.questao_id, alunoId: r.aluno_id, aluno: r.aluno, enunciado: r.enunciado, tipo: r.tipo,
+    respostaAluno: r.resposta_aluno, gabarito: r.gabarito,
+    notaAutomatica: r.nota_automatica !== null ? Number(r.nota_automatica) : null,
+    notaManual: r.nota_manual !== null ? Number(r.nota_manual) : null,
+    feedbackIa: r.feedback_ia ?? null, feedbackProfessor: r.feedback_professor ?? null,
+  }));
 }
 
 export async function salvarFeedbackIa(

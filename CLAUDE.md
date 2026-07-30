@@ -22,11 +22,16 @@ Módulo 1 em produção: Tutor de Matemática do 6º ano. Três pilares de usuá
   (class-variance-authority + clsx + tailwind-merge) em `app/componentes/ui`.
 - **Backend/DB:** Supabase (PostgreSQL 17) acessado por `pg` (pool direto) em
   `src/bd/pool.ts`. Multi-tenant por `escola_id` em todas as tabelas.
-- **Vetores/RAG:** pgvector (dimensão **768** = Gemini `text-embedding-004`).
+- **Vetores/RAG:** pgvector (dimensão **768** = OpenAI `text-embedding-3-small`
+  com `dimensions: 768`).
 - **IA (fábricas trocáveis por env):** `src/ia/fabricaLlm.ts` e
-  `fabricaEmbeddings.ts`. Padrão **Gemini** (barato); OpenAI e Ollama opcionais;
-  `USAR_MOCK=1` para testes. **Não** trocar para infra cara (Redis/Pinecone) sem
-  decisão explícita — o projeto é deliberadamente enxuto por custo.
+  `fabricaEmbeddings.ts`. Padrão **OpenAI** (`gpt-4o-mini` + `text-embedding-3-small`),
+  provedor efetivamente usado hoje em dev e produção; Gemini e Ollama ficam
+  disponíveis como opção trocável por env, mas não estão em uso. Gemini foi o
+  provedor original do projeto, trocado por OpenAI logo no início — não usar
+  essa referência em docs novas. `USAR_MOCK=1` para testes. **Não** trocar para
+  infra cara (Redis/Pinecone) sem decisão explícita — o projeto é
+  deliberadamente enxuto por custo.
 - **Deploy:** Vercel (deploy automático no `git push` do `main`).
 
 ## Convenções de código (IMPORTANTE)
@@ -136,7 +141,8 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
 - `src/bd/pool.ts` lê `DATABASE_URL` no momento do import. Em scripts standalone
   (tsx), chame `carregarEnvLocal()` (de `src/bd/ambiente.ts`) ANTES de importar o
   pool. No app Next, o `.env.local` é carregado automaticamente.
-- Dimensão de embeddings é **768** (Gemini). Se trocar de provedor, alinhar a coluna
+- Dimensão de embeddings é **768** (OpenAI `text-embedding-3-small`, com o parametro
+  `dimensions` fixado em 768). Se trocar de provedor, alinhar a coluna
   `vector(768)` e reingerir.
 - RLS das tabelas é `for select`; as **escritas** passam pelo pool privilegiado, então
   SEMPRE restrinja por `escola_id` no `WHERE` para preservar o isolamento.
