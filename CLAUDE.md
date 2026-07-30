@@ -131,10 +131,43 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   `/api/tutor/historico` e `/api/tutor/conversa` independente do TTL — o TTL só
   afeta o que é usado como contexto do modelo, não a visibilidade.
 
+- **Fase 5 — Cadastro estendido, notas/faltas, correção manual, dashboards e
+  personalização:** migrations `20260730000200` a `600`. `responsaveis` (1:N
+  por aluno) e colunas `endereco_familia`/`estado_civil_pais`/`pais_moram_juntos`
+  em `usuarios`, editáveis em `/gestor/gestao` (painel "Família" por aluno).
+  `notas` e `faltas` (situação `justificada`/`nao_justificada`) lançadas pelo
+  professor em `/professor/desempenho`. Correção manual de provas em
+  `/professor/provas/[id]/corrigir` (`respostas.nota_manual`/`feedback_professor`;
+  `nota_efetiva` = `coalesce(nota_manual, nota)`, coluna gerada). Dashboard de
+  notas/acertos por questão em `/professor/desempenho` (turmas do professor) e
+  `/gestor/desempenho` (toda a escola), com lista de alunos por turma
+  (`src/bd/notas.ts`). `configuracoes_escola` (logo + `nota_maxima`/
+  `nota_minima_aprovacao`) editável em `/gestor/configuracoes`. Gestor ganhou
+  acesso a `auditoria`/`guardrail_eventos` de toda a escola em `/gestor/logs`
+  (RLS `audit_select`/`guardrail_select` atualizadas para incluir `gestor`).
+  Script `local/criar_escola.ts` provisiona uma nova escola + gestor (hoje só
+  a Escola Demonstração está em uso).
+
+- **Fase 6 — Tutor em camadas, feedback didático e multimodal:** no chat livre
+  (não no gerador de questões, que continua estritamente livro-only), a busca
+  agora tem 3 níveis: livro da escola (`LIMIAR_GROUNDING`) → habilidade BNCC
+  mais próxima (`LIMIAR_BNCC`, função `buscar_bncc_similar`, migration
+  `20260730000700`) → conhecimento geral do modelo. A origem é sempre exposta
+  ao aluno (`origemResposta` no retorno de `responder()`; badge no chat).
+  `REGRAS_SISTEMA` e os prompts de feedback de provas (`src/rag/provas.ts`)
+  pedem explicação passo a passo em markdown; `app/tutor` e `app/provas/[id]`
+  renderizam com `react-markdown` (classe `.prose-tutor` em `globals.css`).
+  Aluno pode continuar perguntando sobre uma questão de prova que não entendeu
+  (`tirarDuvidaSobreQuestao`, componente `DuvidaQuestao.tsx`, reusa o pipeline
+  do tutor com o contexto da questão como histórico). Tutor multimodal: aluno
+  anexa uma foto (`ProvedorLlm.gerar(prompt, { imagemBase64 })`, suportado hoje
+  só pela OpenAI via `image_url`); quando nem livro nem BNCC cobrem o assunto e
+  há imagem, ela vira a fonte principal (`origemResposta: "imagem"`).
+
 ## Roadmap (ordem do brief)
 
-- **Imagens nas respostas:** react-markdown/SVG quando o RAG permitir.
 - **LGPD/segurança:** adiada por decisão do João — resolver ANTES de dados reais.
+- Considerar self-service de cadastro de escola (hoje só via `local/criar_escola.ts`).
 
 ## Gotchas / lições aprendidas
 
