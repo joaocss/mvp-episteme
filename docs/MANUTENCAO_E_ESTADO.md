@@ -278,7 +278,7 @@ entre escolas na prática é o filtro `where escola_id = $1` em cada função de
 | **4 — Memória de contexto** | Conversa mantém contexto entre perguntas (TTL de 7 dias); sessão "fria" some do contexto mas continua visível no histórico. |
 | **5 — Cadastro estendido, notas, correção manual, dashboards, config** | Responsáveis, endereço/estado civil dos pais; notas/faltas manuais; correção manual de prova pelo professor; dashboard de desempenho (professor e gestor); configurações da escola (logo, nota); gestor com acesso a logs/auditoria de toda a escola; script de provisionamento de nova escola. |
 | **6 — Tutor em camadas, multimodal** | Busca em 3 níveis (livro → BNCC → conhecimento geral, sempre avisando a origem); feedback passo a passo em markdown; aluno pode continuar perguntando sobre uma questão de prova; upload de foto no chat (visão do gpt-4o-mini). |
-| **7 — Multi-série/disciplina, login por módulo** | Filtro de busca por disciplina+série; Português 6º e História 7º ingeridos (local); turma 7º A; seletor de disciplina no chat; `/paineis` público como escolha de perfil pré-login; correção do bug de imagem não persistida; nome da escola editável. |
+| **7 — Multi-série/disciplina, login por módulo** | Filtro de busca por disciplina+série; Português 6º e História 7º ingeridos (local **e produção**); seletor de disciplina no chat; `/paineis` público como escolha de perfil pré-login; correção do bug de imagem não persistida; nome da escola editável. |
 
 ---
 
@@ -337,24 +337,38 @@ roda), `npm run demo:rag` (exercita o pipeline sem UI).
 
 ---
 
-## 10. Pendência imediata: ingestão em produção
+## 10. Ingestão em produção — concluída (30/07/2026)
 
-O material de **Português 6º ano** e **História 7º ano** (Fase 7) só foi ingerido no
-banco **local**. O schema já está sincronizado em produção (`supabase db push` aplicado),
-mas os **dados** (chunks vetorizados dos dois livros novos) ainda não existem lá — até
-isso rodar, alunos de Português/História em produção vão cair direto em "conhecimento
-geral" (o sistema não quebra, só não usa o livro ainda).
+O material de **Português 6º ano** (1341 trechos) e **História 7º ano** (1634 trechos)
+foi ingerido em produção via a API REST do Supabase (`@supabase/supabase-js` com a
+`service_role` key, mesmo padrão de `src/rag/repositorioSupabase.ts`) — caminho usado
+porque as variáveis de ambiente da Vercel estão marcadas como **sensitive** (write-only:
+nem a API nem o painel devolvem o valor depois de salvo), então a `DATABASE_URL` do
+pooler não pôde ser lida de lá. Script pontual descartado depois de rodar (não fica no
+repositório). `materiais_fonte` em produção agora tem as 3 disciplinas: matemática (6º),
+português (6º) e história (7º).
 
-Para concluir, rodar (com a `DATABASE_URL` do **pooler de produção**, porta 5432):
+Também vinculado, em produção: o professor que já lecionava Português na turma do 7º ano
+passou a lecionar História nela também (a turma de 7º já existia em produção, criada
+pelo próprio time — **note**: produção já tinha uso orgânico real acontecendo (vários
+alunos com nomes/emails reais, além dos usuários de teste do seed), não é só um espelho
+do ambiente local. Qualquer ação em produção daqui pra frente deve levar isso em conta.
 
-```powershell
-$env:DATABASE_URL="<pooler de producao>"
-npx tsx src/rag/ingestaoLivro.ts <caminho-do-portugues.txt> 00000000-0000-0000-0000-000000000001 <material_id-portugues>
-npx tsx src/rag/ingestaoLivro.ts <caminho-do-historia.txt> 00000000-0000-0000-0000-000000000001 <material_id-historia>
+### Como refazer a ingestão de um material novo em produção
+
+Sem a `DATABASE_URL` (bloqueada como sensitive), usar a API REST do Supabase:
+
+```ts
+import { createClient } from "@supabase/supabase-js";
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+// 1. insert em materiais_fonte (disciplina, ano, titulo) -> pega o id
+// 2. chunkarTexto() do texto do livro (src/rag/chunkerTexto.ts)
+// 3. embeddings.gerarLote() em lotes de 100
+// 4. supabase.from("material_chunks").insert([...]) com embedding como "[1,2,3]" (string)
 ```
 
-(Os `material_id` de cada disciplina precisam ser criados antes com um `insert into
-materiais_fonte` — mesmo padrão usado localmente.)
+Isso reflete `src/rag/repositorioSupabase.ts`, o caminho que o próprio `ingestaoLivro.ts`
+já usa quando `DATABASE_URL` não está definida.
 
 ---
 
@@ -364,14 +378,13 @@ Critério de ordenação: bloqueantes de segurança/dados reais primeiro, depois
 maior impacto de uso com menor esforço, depois o resto.
 
 ### Curto prazo (próximas sessões)
-1. **Concluir ingestão em produção** (seção 10) — sem isso, Fase 7 está "pela metade" em nuvem.
-2. **Popular BNCC de Português e História** — hoje só Matemática tem habilidades
+1. **Popular BNCC de Português e História** — hoje só Matemática tem habilidades
    cadastradas; sem isso a 2ª camada de grounding não funciona para as novas disciplinas.
-3. **Modo treinador (tarefa de casa anti-muleta)** — pedido explícito do João e já
+2. **Modo treinador (tarefa de casa anti-muleta)** — pedido explícito do João e já
    desenhado por outra IA numa sessão anterior: a IA dá pistas e registra o processo do
    aluno, sem entregar a resposta. Justificativa: é a extensão natural da filosofia
    "parceira cognitiva" para o dever de casa, onde hoje não há registro de processo.
-4. **Exportação de prova em PDF** (`@react-pdf/renderer`, já cogitado) — professores
+3. **Exportação de prova em PDF** (`@react-pdf/renderer`, já cogitado) — professores
    frequentemente precisam imprimir provas para aplicação presencial; hoje só existe a
    versão digital.
 
