@@ -20,6 +20,7 @@ const RotuloOrigem: Record<string, string> = {
 
 const ROTULO_DISCIPLINA: Record<string, string> = {
   matematica: "Matematica", portugues: "Lingua Portuguesa", historia: "Historia",
+  tecnico_administrativo: "Tecnico em Administracao",
 };
 
 const TAMANHO_MAX_IMAGEM = 4_500_000; // bytes, antes de virar base64
