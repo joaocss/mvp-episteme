@@ -15,15 +15,15 @@ async function enviar(dados: Record<string, unknown>): Promise<string | null> {
 
 function Cartao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <h3 className="font-semibold text-slate-800">{titulo}</h3>
+    <div className="rounded-xl border border-borda bg-superficie p-4 shadow-cartao">
+      <h3 className="font-semibold text-grafite">{titulo}</h3>
       <div className="mt-3 space-y-2">{children}</div>
     </div>
   );
 }
 
-const inp = "w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#7a6aa5]";
-const btn = "rounded-md bg-[#3B2C63] px-3 py-2 text-sm font-medium text-white hover:bg-[#2f2350] disabled:opacity-50";
+const inp = "campo";
+const btn = "btn-primario w-full";
 
 export default function FormulariosGestao({ turmas, professores }: { turmas: Opcao[]; professores: Opcao[] }) {
   const [msg, setMsg] = useState("");

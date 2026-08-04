@@ -12,6 +12,10 @@
 }
 
 @layer base {
+  body {
+    @apply bg-tela text-grafite antialiased;
+  }
+
   /* Titulos e marca: serifada, para credibilidade academica. */
   h1, h2, h3 {
     font-family: Georgia, "Times New Roman", serif;
@@ -22,23 +26,42 @@
     outline: 2px solid var(--roxo);
     outline-offset: 2px;
   }
+
+  /* Barra de rolagem discreta, coerente com a paleta. */
+  * {
+    scrollbar-color: #cfc9dd transparent;
+  }
 }
 
 @layer components {
   /* Botao primario reutilizavel: alvo de toque generoso (~44px), feedback de estado. */
   .btn-primario {
-    @apply inline-flex min-h-[44px] items-center justify-center rounded-lg bg-roxo px-5 py-2.5
-           font-medium text-white transition hover:bg-roxo-escuro
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-roxo px-5 py-2.5
+           font-medium text-white shadow-sm transition hover:bg-roxo-escuro
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-roxo-claro
            disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secundario {
-    @apply inline-flex min-h-[44px] items-center justify-center rounded-lg border border-roxo/30
-           bg-white px-5 py-2.5 font-medium text-roxo transition hover:bg-creme;
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-roxo/20
+           bg-white px-5 py-2.5 font-medium text-roxo transition hover:bg-roxo-suave
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-roxo-claro
+           disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .cartao {
-    @apply rounded-xl border border-slate-200 bg-white shadow-cartao;
+    @apply rounded-xl border border-borda bg-superficie shadow-cartao;
+  }
+
+  /* Campo de formulario padrao (input/textarea/select). */
+  .campo {
+    @apply min-h-[44px] w-full rounded-lg border border-borda bg-white px-3 py-2 text-sm text-grafite
+           shadow-sm transition placeholder:text-slate-400
+           focus:border-roxo-claro focus:outline-none focus:ring-2 focus:ring-roxo-claro/40;
+  }
+
+  .rotulo-campo {
+    @apply block text-sm font-medium text-grafite;
   }
 
   /* Formatacao das respostas em markdown do tutor (passo a passo, listas, negrito). */
@@ -46,6 +69,7 @@
   .prose-tutor p { @apply mb-2 last:mb-0; }
   .prose-tutor ol { @apply mb-2 list-decimal space-y-1 pl-5; }
   .prose-tutor ul { @apply mb-2 list-disc space-y-1 pl-5; }
+  .prose-tutor h1, .prose-tutor h2, .prose-tutor h3 { @apply mb-2 mt-3 font-semibold text-roxo-escuro; }
   .prose-tutor strong { @apply font-semibold text-roxo-escuro; }
   .prose-tutor code {
     @apply rounded bg-slate-200/70 px-1 py-0.5 font-mono text-[0.85em];

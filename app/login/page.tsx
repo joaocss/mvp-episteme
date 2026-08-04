@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Icone } from "../componentes/ui/Icone";
 
 const ROTA_PAPEL: Record<string, string> = { gestor: "/gestor", professor: "/professor", aluno: "/tutor" };
 const TITULO_PAPEL: Record<string, string> = { gestor: "Gestor", professor: "Professor", aluno: "Aluno" };
@@ -36,55 +37,94 @@ export default function PaginaLogin() {
         window.location.href = ROTA_PAPEL[d.papel] ?? "/paineis";
       } else {
         const d = await r.json().catch(() => ({}));
-        setErro(d.erro ?? "Não foi possível continuar.");
+        setErro(d.erro ?? "Nao foi possivel continuar.");
       }
     } finally {
       setEnviando(false);
     }
   }
 
-  const campo =
-    "mt-1 min-h-[44px] w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-roxo-claro";
-
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-creme to-slate-100 p-4">
-      <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-cartao">
-        <div className="flex flex-col items-center border-b border-slate-100 px-6 py-6">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-episteme.svg" alt="Episteme — inteligência que ensina a pensar" className="h-14 w-auto" />
+    <main className="grid min-h-screen lg:grid-cols-2">
+      {/* Lado da marca */}
+      <div className="relative hidden flex-col justify-between bg-gradiente-roxo p-10 text-white lg:flex">
+        <a href="/" className="flex items-center gap-2.5">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-dourado">
+            <Icone nome="bussola" className="h-6 w-6" />
+          </span>
+          <span className="font-titulo text-xl font-bold">Episteme</span>
+        </a>
+        <div>
+          <h2 className="max-w-sm font-titulo text-3xl font-bold leading-snug">
+            {papelEscolhido ? `Acesso do ${TITULO_PAPEL[papelEscolhido]}.` : "Bem-vindo de volta."}
+          </h2>
+          <p className="mt-4 max-w-sm text-white/70">
+            A inteligencia que ensina a pensar, ancorada no material da sua escola.
+          </p>
         </div>
-        <form onSubmit={enviar} className="flex flex-col gap-3 p-6">
-          <p className="text-sm text-slate-600">
+        <p className="text-sm text-white/40">Inteligencia que ensina a pensar.</p>
+      </div>
+
+      {/* Lado do formulario */}
+      <div className="flex items-center justify-center bg-tela px-6 py-12">
+        <div className="w-full max-w-sm">
+          {/* Marca compacta (visivel no mobile) */}
+          <div className="mb-8 flex items-center gap-2.5 lg:hidden">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-roxo text-dourado">
+              <Icone nome="bussola" className="h-6 w-6" />
+            </span>
+            <span className="font-titulo text-xl font-bold text-roxo">Episteme</span>
+          </div>
+
+          <h1 className="text-2xl font-bold text-grafite">
+            {modo === "entrar" ? "Entrar" : "Criar conta"}
+          </h1>
+          <p className="mt-1.5 text-sm text-slate-500">
             {modo === "entrar"
-              ? papelEscolhido ? `Entrar como ${TITULO_PAPEL[papelEscolhido]}.` : "Entre com sua conta."
+              ? papelEscolhido
+                ? `Entre com sua conta de ${TITULO_PAPEL[papelEscolhido].toLowerCase()}.`
+                : "Entre com sua conta."
               : "Crie sua conta de aluno."}
           </p>
           {papelEscolhido && (
-            <a href="/paineis" className="-mt-2 text-xs text-roxo hover:underline">← Trocar de perfil</a>
+            <a href="/paineis" className="mt-1 inline-block text-xs text-roxo hover:underline">
+              &larr; Trocar de perfil
+            </a>
           )}
-          {modo === "cadastrar" && (
-            <div>
-              <label htmlFor="nome" className="block text-sm font-medium text-slate-700">Nome</label>
-              <input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} required className={campo} />
+
+          <form onSubmit={enviar} className="mt-6 flex flex-col gap-4">
+            {modo === "cadastrar" && (
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="nome" className="rotulo-campo">Nome</label>
+                <input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} required className="campo" />
+              </div>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="email" className="rotulo-campo">Email</label>
+              <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="campo" />
             </div>
-          )}
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700">Email</label>
-            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className={campo} />
-          </div>
-          <div>
-            <label htmlFor="senha" className="block text-sm font-medium text-slate-700">Senha</label>
-            <input id="senha" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required className={campo} />
-          </div>
-          {erro && <p className="text-sm text-alerta" role="alert">{erro}</p>}
-          <button type="submit" disabled={enviando} className="btn-primario mt-1 w-full">
-            {modo === "entrar" ? "Entrar" : "Cadastrar"}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="senha" className="rotulo-campo">Senha</label>
+              <input id="senha" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required className="campo" />
+            </div>
+            {erro && (
+              <p className="rounded-lg border border-alerta/30 bg-red-50 px-3 py-2 text-sm text-alerta" role="alert">
+                {erro}
+              </p>
+            )}
+            <button type="submit" disabled={enviando} className="btn-primario mt-1 w-full">
+              {enviando ? "Aguarde..." : modo === "entrar" ? "Entrar" : "Cadastrar"}
+            </button>
+          </form>
+
+          <button
+            type="button"
+            onClick={() => { setModo(modo === "entrar" ? "cadastrar" : "entrar"); setErro(""); }}
+            className="mt-4 min-h-[44px] w-full text-sm text-roxo hover:underline"
+          >
+            {modo === "entrar" ? "Nao tem conta? Cadastre-se" : "Ja tem conta? Entrar"}
           </button>
-          <button type="button" onClick={() => { setModo(modo === "entrar" ? "cadastrar" : "entrar"); setErro(""); }}
-            className="min-h-[44px] text-sm text-roxo hover:underline">
-            {modo === "entrar" ? "Não tem conta? Cadastre-se" : "Já tem conta? Entrar"}
-          </button>
-        </form>
+        </div>
       </div>
     </main>
   );

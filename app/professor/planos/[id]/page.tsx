@@ -1,26 +1,24 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { redirect, notFound } from "next/navigation";
-import { lerToken } from "../../../../lib/sessao";
+import { notFound } from "next/navigation";
+import { exigirPapel } from "../../../../lib/sessaoServidor";
 import { obterPlanoEnsino } from "../../../../src/rag/planejamento";
+import { LayoutApp } from "../../../componentes/LayoutApp";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function PaginaPlano({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
-  if (!sessao || sessao.papel !== "professor") redirect("/login");
+  const sessao = await exigirPapel(["professor"]);
   const plano = await obterPlanoEnsino(sessao.escolaId, id);
   if (!plano) notFound();
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <Link href="/professor/planos" className="text-sm text-[#3B2C63] hover:underline">← Voltar aos planos</Link>
-      <article className="mt-4 whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-6 text-sm leading-relaxed text-slate-800">
+    <LayoutApp sessao={sessao}>
+      <Link href="/professor/planos" className="text-sm text-roxo hover:underline">&larr; Voltar aos planos</Link>
+      <article className="mt-4 whitespace-pre-wrap rounded-xl border border-borda bg-superficie p-6 text-sm leading-relaxed text-grafite shadow-cartao">
         {plano.markdown}
       </article>
-    </main>
+    </LayoutApp>
   );
 }

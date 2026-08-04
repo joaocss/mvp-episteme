@@ -1,42 +1,42 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { lerToken } from "../../lib/sessao";
+import { exigirPapel } from "../../lib/sessaoServidor";
 import { listarProvasDisponiveis } from "../../src/bd/provas";
+import { LayoutApp } from "../componentes/LayoutApp";
+import { CabecalhoPagina } from "../componentes/ui/CabecalhoPagina";
+import { Selo } from "../componentes/ui/Selo";
+import { EstadoVazio } from "../componentes/ui/EstadoVazio";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function PaginaProvasAluno() {
-  const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
-  if (!sessao || sessao.papel !== "aluno") redirect("/login");
-
+  const sessao = await exigirPapel(["aluno"]);
   const provas = await listarProvasDisponiveis(sessao.escolaId, sessao.usuarioId);
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <Link href="/tutor" className="text-sm text-roxo hover:underline">← Voltar ao tutor</Link>
-      <h1 className="mt-2 text-2xl font-bold text-grafite">Provas</h1>
-      <p className="mt-1 text-slate-600">Responda uma questão por vez. Você pode pedir dicas e feedback da IA a qualquer momento.</p>
+    <LayoutApp sessao={sessao}>
+      <CabecalhoPagina
+        titulo="Provas"
+        subtitulo="Responda uma questao por vez. Voce pode pedir dicas e feedback da IA a qualquer momento."
+      />
 
       <section className="mt-6">
         {provas.length === 0 ? (
-          <p className="text-slate-500">Nenhuma prova disponível no momento.</p>
+          <EstadoVazio icone="provas" titulo="Nenhuma prova disponivel" descricao="Quando o professor publicar uma prova, ela aparece aqui." />
         ) : (
           <ul className="space-y-2">
             {provas.map((p) => {
               const concluida = p.respondidas >= p.numeroQuestoes;
               return (
-                <li key={p.id} className="cartao p-3">
-                  <Link href={`/provas/${p.id}`} className="flex items-center justify-between hover:underline">
+                <li key={p.id} className="cartao">
+                  <Link href={`/provas/${p.id}`} className="flex items-center justify-between p-3.5 transition hover:bg-roxo-suave/40">
                     <div>
                       <span className="font-medium text-grafite">{p.titulo}</span>
                       <span className="ml-2 text-sm text-slate-500">{p.turma} — {p.assunto}</span>
                     </div>
-                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${concluida ? "bg-green-100 text-green-800" : "bg-creme text-roxo"}`}>
-                      {p.respondidas}/{p.numeroQuestoes} {concluida ? "concluída" : "respondidas"}
-                    </span>
+                    <Selo cor={concluida ? "sucesso" : "dourado"}>
+                      {p.respondidas}/{p.numeroQuestoes} {concluida ? "concluida" : "respondidas"}
+                    </Selo>
                   </Link>
                 </li>
               );
@@ -44,6 +44,6 @@ export default async function PaginaProvasAluno() {
           </ul>
         )}
       </section>
-    </main>
+    </LayoutApp>
   );
 }

@@ -1,28 +1,20 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { lerToken } from "../../lib/sessao";
+import { exigirPapel } from "../../lib/sessaoServidor";
 import {
   estatisticasProfessor, listarSessoes, alertas, competenciasTrabalhadas, registrarAcessoProfessor,
 } from "../../src/bd/professor";
+import { LayoutApp } from "../componentes/LayoutApp";
+import { CabecalhoPagina } from "../componentes/ui/CabecalhoPagina";
+import { Kpi } from "../componentes/ui/Kpi";
+import { Selo } from "../componentes/ui/Selo";
+import { EstadoVazio } from "../componentes/ui/EstadoVazio";
+import { variantesBotao } from "../componentes/ui/Botao";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function Cartao({ rotulo, valor, destaque = false }: { rotulo: string; valor: number; destaque?: boolean }) {
-  const alerta = destaque && valor > 0;
-  return (
-    <div className={`rounded-lg border p-4 ${alerta ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"}`}>
-      <p className="text-sm text-slate-500">{rotulo}</p>
-      <p className={`text-2xl font-bold ${alerta ? "text-red-700" : "text-slate-900"}`}>{valor}</p>
-    </div>
-  );
-}
-
 export default async function PaginaProfessor() {
-  const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
-  if (!sessao || sessao.papel !== "professor") redirect("/login");
+  const sessao = await exigirPapel(["professor"]);
 
   await registrarAcessoProfessor(sessao.escolaId, sessao.usuarioId);
   const [est, sessoes, listaAlertas, competencias] = await Promise.all([
@@ -33,36 +25,42 @@ export default async function PaginaProfessor() {
   ]);
 
   return (
-    <main className="mx-auto max-w-4xl p-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Painel do Professor — 6º ano</h1>
-        <div className="flex items-center gap-4">
-          <a href="/professor/planos" className="text-sm text-blue-700 hover:underline">Planejamento</a>
-          <a href="/professor/provas" className="text-sm text-blue-700 hover:underline">Provas</a>
-          <a href="/professor/materiais" className="text-sm text-blue-700 hover:underline">Materiais</a>
-          <a href="/professor/desempenho" className="text-sm text-blue-700 hover:underline">Notas e faltas</a>
-          <a href="/api/professor/export" className="text-sm text-blue-700 hover:underline">Exportar CSV</a>
-          <form action="/auth/sair" method="post">
-            <button type="submit" className="text-sm text-slate-500 hover:text-slate-800">Sair</button>
-          </form>
-        </div>
-      </header>
+    <LayoutApp sessao={sessao}>
+      <CabecalhoPagina
+        titulo="Painel do Professor"
+        subtitulo="Acompanhe suas turmas, provas e alertas"
+        acoes={
+          <>
+            <Link href="/professor/materiais" className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
+              Materiais
+            </Link>
+            <Link href="/professor/provas/nova" className={variantesBotao({ variante: "primario", tamanho: "pequeno" })}>
+              Elaborar prova
+            </Link>
+          </>
+        }
+      />
 
-      <section className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4" aria-label="Indicadores">
-        <Cartao rotulo="Alunos" valor={est.totalAlunos} />
-        <Cartao rotulo="Sessões" valor={est.totalSessoes} />
-        <Cartao rotulo="Perguntas" valor={est.totalPerguntas} />
-        <Cartao rotulo="Alertas de segurança" valor={est.alertasSeguranca} destaque />
+      <section className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4" aria-label="Indicadores">
+        <Kpi rotulo="Alunos" valor={est.totalAlunos} icone="alunos" />
+        <Kpi rotulo="Sessoes" valor={est.totalSessoes} icone="tutor" />
+        <Kpi rotulo="Perguntas" valor={est.totalPerguntas} icone="desempenho" />
+        <Kpi rotulo="Alertas" valor={est.alertasSeguranca} icone="logs" destaque ativoDestaque={est.alertasSeguranca > 0} />
       </section>
 
       {listaAlertas.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-lg font-semibold">Alertas</h2>
+          <h2 className="text-lg font-semibold text-grafite">Alertas</h2>
           <ul className="mt-3 space-y-2">
             {listaAlertas.map((a, i) => (
-              <li key={i} className={`rounded-md border p-3 ${a.severidade === "alta" ? "border-red-300 bg-red-50" : "border-amber-200 bg-amber-50"}`}>
-                <p className="text-sm font-medium text-slate-800">{a.categoria} · {a.severidade}</p>
-                <p className="text-sm text-slate-600">{a.detalhe}</p>
+              <li
+                key={i}
+                className={`rounded-xl border p-3.5 ${a.severidade === "alta" ? "border-alerta/30 bg-red-50" : "border-amber-200 bg-amber-50"}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Selo cor={a.severidade === "alta" ? "alerta" : "aviso"}>{a.categoria} · {a.severidade}</Selo>
+                </div>
+                <p className="mt-1.5 text-sm text-slate-600">{a.detalhe}</p>
                 <p className="mt-1 text-xs text-slate-400">{a.aluno} · {a.quando}</p>
               </li>
             ))}
@@ -72,12 +70,14 @@ export default async function PaginaProfessor() {
 
       {competencias.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-lg font-semibold">Competências (BNCC) mais trabalhadas</h2>
+          <h2 className="text-lg font-semibold text-grafite">Competencias (BNCC) mais trabalhadas</h2>
           <ul className="mt-3 flex flex-wrap gap-2">
             {competencias.map((c) => (
-              <li key={c.codigo} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm">
-                <span className="font-medium text-slate-800">{c.codigo}</span>
-                <span className="text-slate-400"> · {c.unidade} · {c.total}</span>
+              <li key={c.codigo}>
+                <Selo cor="roxo">
+                  <span className="font-semibold">{c.codigo}</span>
+                  <span className="opacity-70"> · {c.unidade} · {c.total}</span>
+                </Selo>
               </li>
             ))}
           </ul>
@@ -85,15 +85,24 @@ export default async function PaginaProfessor() {
       )}
 
       <section className="mt-8">
-        <h2 className="text-lg font-semibold">Sessões</h2>
+        <h2 className="text-lg font-semibold text-grafite">Sessoes recentes</h2>
         {sessoes.length === 0 ? (
-          <p className="mt-2 text-slate-500">Ainda não há sessões.</p>
+          <div className="mt-3">
+            <EstadoVazio
+              icone="tutor"
+              titulo="Ainda nao ha sessoes"
+              descricao="Quando os alunos comecarem a conversar com o tutor, as sessoes aparecem aqui."
+            />
+          </div>
         ) : (
           <ul className="mt-3 space-y-2">
             {sessoes.map((s) => (
-              <li key={s.sessaoId} className="rounded-md border border-slate-200 bg-white p-3">
-                <Link href={`/professor/sessao/${s.sessaoId}`} className="flex items-center justify-between hover:underline">
-                  <span className="text-slate-900">{s.aluno} — {s.perguntas} pergunta(s)</span>
+              <li key={s.sessaoId} className="cartao">
+                <Link
+                  href={`/professor/sessao/${s.sessaoId}`}
+                  className="flex items-center justify-between p-3.5 transition hover:bg-roxo-suave/40"
+                >
+                  <span className="font-medium text-grafite">{s.aluno} — {s.perguntas} pergunta(s)</span>
                   <span className="text-xs text-slate-400">{s.iniciada}</span>
                 </Link>
               </li>
@@ -101,6 +110,6 @@ export default async function PaginaProfessor() {
           </ul>
         )}
       </section>
-    </main>
+    </LayoutApp>
   );
 }
