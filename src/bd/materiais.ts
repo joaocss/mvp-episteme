@@ -112,16 +112,23 @@ export async function listarMateriais(escolaId: string): Promise<MaterialLista[]
      order by m.criado_em desc`,
     [escolaId],
   );
-  return rows.map((r) => ({
+  return rows.map((r) => {
+    const trechos = Number(r.trechos) || 0;
+    // Materiais ingeridos via CLI antigo nunca setaram status_ingestao; se ja ha
+    // trechos gravados, o material esta de fato concluido (evita "Pendente" falso).
+    const status = (r.status_ingestao === "pendente" && trechos > 0)
+      ? "concluido" : (r.status_ingestao as StatusIngestao);
+    return {
     id: r.id,
     tipo: r.tipo,
     disciplina: r.disciplina,
     ano: r.ano,
     titulo: r.titulo,
     referencia: r.referencia ?? null,
-    statusIngestao: r.status_ingestao as StatusIngestao,
-    trechos: Number(r.trechos) || 0,
+    statusIngestao: status,
+    trechos,
     turmas: (typeof r.turmas === "string" ? JSON.parse(r.turmas) : r.turmas) as { id: string; nome: string }[],
     criadoEm: new Date(r.criado_em).toISOString(),
-  }));
+    };
+  });
 }
