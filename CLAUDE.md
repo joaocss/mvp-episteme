@@ -164,8 +164,28 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   só pela OpenAI via `image_url`); quando nem livro nem BNCC cobrem o assunto e
   há imagem, ela vira a fonte principal (`origemResposta: "imagem"`).
 
+- **Fase 8 — Conteúdo escopado por turma + ingestão de PDF in-app** (migration
+  `20260803000100`): catálogo de `disciplinas` por escola (gestor cria/edita),
+  vínculo M:N material↔turma (`materiais_turmas`) e `turmas.modo_estrito`.
+  `buscar_trechos` ganhou `p_turma_id` (null = comportamento legado por
+  disciplina/série). Upload de PDF pelo professor/diretor em `/gestor/materiais`
+  e `/professor/materiais` (componente `app/componentes/GestaoMateriais.tsx`):
+  rota `app/api/materiais` cria o material, vincula turmas e ingere
+  (`src/rag/ingestaoPdf.ts` → `extrairPdf.ts` com **unpdf** → `chunkarTexto` →
+  embeddings → `material_chunks`). Catálogo de disciplinas em
+  `app/api/gestor/disciplinas`. Tutor (`src/rag/tutor.ts` + `app/api/tutor`)
+  escopa a busca à turma do aluno **quando a turma já tem material próprio**
+  (`turmaDoAluno` em `src/bd/aluno.ts`); com `modo_estrito` ligado, recusa fora
+  do material da turma (não usa BNCC/geral). Sem material vinculado, a turma
+  mantém o comportamento legado (não quebra turmas antigas).
+
 ## Roadmap (ordem do brief)
 
+- **B — Gestão de alunos:** reenturmar aluno (UI; `definirTurmaAluno` já existe),
+  importar alunos via planilha (CSV/XLSX), download dos dados dos alunos (só
+  diretor, com auditoria).
+- **C — Analytics:** melhorar gráficos dos alunos + relatórios com filtros
+  (turma/disciplina/período/competência).
 - **LGPD/segurança:** adiada por decisão do João — resolver ANTES de dados reais.
 - Considerar self-service de cadastro de escola (hoje só via `local/criar_escola.ts`).
 
@@ -184,6 +204,18 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   não aplicados no Cloud.
 - Rodar `npm install`/`Remove-Item node_modules` com o dev server ativo trava arquivos
   (`next-swc`). Pare o dev server antes.
+- **Ingestão de PDF:** `extrairPdf.ts` faz um polyfill de `Math.sumPrecise` ANTES
+  de chamar o unpdf. Sem ele, o pdf.js cai num fallback lento (extração de ~8
+  páginas passou de 0,5s para ~55s) — NÃO remover. O `chunkarTexto` subdivide
+  parágrafos gigantes por frase (PDF costuma vir sem linha em branco entre
+  parágrafos, senão viraria 1 chunk único). Teste sem banco:
+  `npx tsx local/testarExtracaoPdf.ts <caminho.pdf>`.
+- **Migration `20260803000100` ainda NÃO foi aplicada** (nem local nem cloud) —
+  aplicar antes de usar a Fase 8 (`supabase migration up` local / `supabase db
+  push` cloud).
+- Supabase local exige Docker. No Windows do João, o Docker Desktop
+  (`%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe`) precisa ser aberto
+  manualmente e concluir o setup na 1ª vez; o daemon não sobe só via CLI.
 
 ## Como o Claude deve trabalhar aqui
 

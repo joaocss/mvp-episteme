@@ -21,7 +21,8 @@
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
     "recharts": "^3.10.1",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "unpdf": "^1.8.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

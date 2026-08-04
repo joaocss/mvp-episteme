@@ -12,6 +12,37 @@ export async function serieDoAluno(escolaId: string, alunoId: string): Promise<s
   return rows[0]?.serie ?? "6o ano";
 }
 
+export interface TurmaDoAluno {
+  turmaId: string;
+  serie: string;
+  modoEstrito: boolean;
+  // Verdadeiro quando a turma ja tem material proprio vinculado: nesse caso o
+  // tutor escopa a busca aos materiais da turma. Sem material vinculado, cai no
+  // comportamento legado (busca por disciplina/serie), para nao quebrar turmas
+  // antigas cujo conteudo foi ingerido antes do escopo por turma existir.
+  temMaterial: boolean;
+}
+
+// Turma do aluno com o sinal de escopo (modo estrito + se tem material proprio).
+// Aluno sem turma retorna null (o tutor usa o padrao por serie).
+export async function turmaDoAluno(escolaId: string, alunoId: string): Promise<TurmaDoAluno | null> {
+  const { rows } = await pool.query(
+    `select t.id as turma_id, t.serie, t.modo_estrito,
+            exists (select 1 from materiais_turmas mt where mt.turma_id = t.id) as tem_material
+     from matriculas m join turmas t on t.id = m.turma_id
+     where m.escola_id = $1 and m.aluno_id = $2 limit 1`,
+    [escolaId, alunoId],
+  );
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    turmaId: r.turma_id,
+    serie: r.serie ?? "6o ano",
+    modoEstrito: Boolean(r.modo_estrito),
+    temMaterial: Boolean(r.tem_material),
+  };
+}
+
 export interface DisciplinaDisponivel { disciplina: string; }
 
 // Disciplinas com material efetivamente ingerido (ha chunks gravados) para a

@@ -7,7 +7,10 @@ import {
   matricularAluno, definirTurmaAluno,
   vincularProfessorTurma, desvincularProfessorTurma,
   adicionarResponsavel, editarResponsavel, excluirResponsavel, listarResponsaveis,
+  definirModoEstrito, reenturmarAlunos,
 } from "../../../../src/bd/gestao";
+import { registrarAuditoria } from "../../../../src/rag/repositorioConversas";
+import { randomUUID } from "node:crypto";
 
 export const runtime = "nodejs";
 
@@ -47,6 +50,20 @@ export async function POST(requisicao: Request) {
         if (!d.id) return NextResponse.json({ erro: "turma não informada" }, { status: 400 });
         await excluirTurma(esc, d.id);
         break;
+
+      case "modo-estrito":
+        if (!d.turmaId) return NextResponse.json({ erro: "turma não informada" }, { status: 400 });
+        await definirModoEstrito(esc, d.turmaId, Boolean(d.ativo));
+        break;
+
+      case "reenturmar": {
+        if (!Array.isArray(d.alunoIds) || d.alunoIds.length === 0) {
+          return NextResponse.json({ erro: "selecione ao menos um aluno" }, { status: 400 });
+        }
+        const movidos = await reenturmarAlunos(esc, d.alunoIds.map(String), d.turmaDestinoId || null);
+        await registrarAuditoria(esc, sessao.usuarioId, "aluno.reenturmar", "turmas", d.turmaDestinoId || null, randomUUID());
+        return NextResponse.json({ ok: true, movidos });
+      }
 
       case "professor":
       case "aluno": {

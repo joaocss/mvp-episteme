@@ -10,7 +10,7 @@ import {
   criarSessao, registrarInteracao, registrarFontes, registrarGuardrails, registrarAuditoria,
   buscarHistoricoRecente, obterDisciplinaSessao,
 } from "../../../src/rag/repositorioConversas";
-import { serieDoAluno } from "../../../src/bd/aluno";
+import { turmaDoAluno } from "../../../src/bd/aluno";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -61,10 +61,17 @@ export async function POST(requisicao: Request) {
   const traceId = randomUUID();
   const { escolaId, usuarioId: alunoId } = sessao;
 
-  // Serie do aluno (Fase 7: multi-serie/multi-disciplina) e a serie determina
-  // o escopo do material buscado; a disciplina e escolhida pelo aluno na nova
-  // conversa e depois fica fixa na sessao (ver obterDisciplinaSessao abaixo).
-  const serie = await serieDoAluno(escolaId, alunoId);
+  // Turma do aluno: define a serie (escopo do material) e, quando a turma tem
+  // material proprio, restringe a busca a ela (conteudo estritamente da turma).
+  // modoEstrito bloqueia o fallback para BNCC/conhecimento geral.
+  const turma = await turmaDoAluno(escolaId, alunoId);
+  const serie = turma?.serie ?? "6o ano";
+  // Modo estrito so vale quando a turma ja tem material proprio: sem material,
+  // cai no comportamento legado (busca por disciplina/serie) para nao bloquear
+  // tudo enquanto o professor ainda nao subiu conteudo da turma.
+  const opcoesTurma = turma?.temMaterial
+    ? { turmaId: turma.turmaId, modoEstrito: turma.modoEstrito }
+    : {};
   const disciplinaEscolhida = typeof corpo.disciplina === "string" && corpo.disciplina.trim()
     ? corpo.disciplina.trim() : "matematica";
 
@@ -95,7 +102,7 @@ export async function POST(requisicao: Request) {
   const inicio = Date.now();
   let resultado;
   try {
-    resultado = await responder(escolaId, pergunta.trim(), obterDependencias(), historico, imagemBase64, disciplina, serie);
+    resultado = await responder(escolaId, pergunta.trim(), obterDependencias(), historico, imagemBase64, disciplina, serie, opcoesTurma);
   } catch (e) {
     console.error("[tutor]", e);
     return NextResponse.json({ erro: "falha ao processar" }, { status: 500 });

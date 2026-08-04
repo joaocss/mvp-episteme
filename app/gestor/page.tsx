@@ -47,8 +47,20 @@ export default async function PaginaGestor() {
               <Link href="/gestor/gestao" className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
                 Gestão / Cadastros
               </Link>
+              <Link href="/gestor/materiais" className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
+                Materiais
+              </Link>
+              <Link href="/gestor/reenturmar" className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
+                Reenturmar
+              </Link>
+              <Link href="/gestor/alunos" className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
+                Dados dos alunos
+              </Link>
               <Link href="/gestor/desempenho" className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
                 Desempenho
+              </Link>
+              <Link href="/gestor/relatorios" className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
+                Relatórios
               </Link>
               <Link href="/gestor/logs" className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
                 Logs e Alertas

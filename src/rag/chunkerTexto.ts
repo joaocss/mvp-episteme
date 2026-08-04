@@ -21,12 +21,36 @@ export function limparRuidoPdf(texto: string): string {
   return t.replace(/[ \t]{2,}/g, " ");
 }
 
+// Quebra uma unidade grande demais (ex.: PDF extraido sem linhas em branco, que
+// vira um unico "paragrafo" enorme) em pedacos por frase, respeitando o tamanho
+// alvo. Sem isso, um PDF inteiro viraria um unico chunk — inutil para o RAG.
+function subdividirPorFrase(paragrafo: string, tamanhoAlvo: number): string[] {
+  if (paragrafo.length <= tamanhoAlvo * 1.5) return [paragrafo];
+  const frases = paragrafo.split(/(?<=[.!?…])\s+/);
+  const pedacos: string[] = [];
+  let atual = "";
+  for (const frase of frases) {
+    // Frase unica maior que o alvo: corta no braco por tamanho fixo.
+    if (frase.length > tamanhoAlvo * 1.5) {
+      if (atual) { pedacos.push(atual.trim()); atual = ""; }
+      for (let i = 0; i < frase.length; i += tamanhoAlvo) pedacos.push(frase.slice(i, i + tamanhoAlvo).trim());
+      continue;
+    }
+    if (atual && (atual + " " + frase).length > tamanhoAlvo) { pedacos.push(atual.trim()); atual = frase; }
+    else atual = atual ? `${atual} ${frase}` : frase;
+  }
+  if (atual.trim()) pedacos.push(atual.trim());
+  return pedacos.filter(Boolean);
+}
+
 export function chunkarTexto(texto: string, tamanhoAlvo = 900, sobreposicao = 150): ChunkTexto[] {
   const limpo = limparRuidoPdf(texto);
   const paragrafos = limpo
     .split(/\n\s*\n/)
     .map((p) => p.replace(/\s+/g, " ").trim())
-    .filter((p) => p.length > 40);
+    .filter((p) => p.length > 40)
+    // Paragrafos gigantes (tipico de PDF sem quebra dupla) sao subdivididos por frase.
+    .flatMap((p) => subdividirPorFrase(p, tamanhoAlvo));
 
   const chunks: ChunkTexto[] = [];
   let buffer = "";

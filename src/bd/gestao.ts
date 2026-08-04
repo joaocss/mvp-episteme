@@ -122,6 +122,41 @@ export async function definirTurmaAluno(escolaId: string, alunoId: string, turma
   if (turmaId) await matricularAluno(escolaId, alunoId, turmaId);
 }
 
+// Reenturmacao em lote (virada de ano): move varios alunos para a turma destino.
+// turmaDestinoId nulo desmatricula todos. Roda em transacao. Retorna quantos moveu.
+export async function reenturmarAlunos(
+  escolaId: string, alunoIds: string[], turmaDestinoId: string | null,
+): Promise<number> {
+  if (alunoIds.length === 0) return 0;
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("begin");
+    await cliente.query(
+      `delete from matriculas where escola_id = $1 and aluno_id = any($2::uuid[])`,
+      [escolaId, alunoIds],
+    );
+    if (turmaDestinoId) {
+      // Confirma que a turma destino e da mesma escola (defesa de isolamento).
+      const t = await cliente.query(`select 1 from turmas where id = $1 and escola_id = $2`, [turmaDestinoId, escolaId]);
+      if (!t.rows[0]) throw new Error("turma destino invalida");
+      for (const alunoId of alunoIds) {
+        await cliente.query(
+          `insert into matriculas (escola_id, aluno_id, turma_id) values ($1,$2,$3)
+           on conflict (aluno_id, turma_id) do nothing`,
+          [escolaId, alunoId, turmaDestinoId],
+        );
+      }
+    }
+    await cliente.query("commit");
+    return alunoIds.length;
+  } catch (e) {
+    await cliente.query("rollback");
+    throw e;
+  } finally {
+    cliente.release();
+  }
+}
+
 export async function vincularProfessorTurma(
   escolaId: string, professorId: string, turmaId: string, disciplina = "matematica",
 ): Promise<void> {
@@ -148,13 +183,25 @@ export async function desvincularProfessorTurma(
   }
 }
 
-export interface TurmaLista { id: string; nome: string; serie: string; anoLetivo: number; alunos: number; }
+export interface TurmaLista { id: string; nome: string; serie: string; anoLetivo: number; alunos: number; modoEstrito: boolean; }
 export async function listarTurmas(escolaId: string): Promise<TurmaLista[]> {
   const { rows } = await pool.query(
-    `select t.id, t.nome, t.serie, t.ano_letivo, count(m.id) as alunos
+    `select t.id, t.nome, t.serie, t.ano_letivo, t.modo_estrito, count(m.id) as alunos
      from turmas t left join matriculas m on m.turma_id = t.id
      where t.escola_id = $1 group by t.id order by t.nome`, [escolaId]);
-  return rows.map((r) => ({ id: r.id, nome: r.nome, serie: r.serie, anoLetivo: r.ano_letivo, alunos: Number(r.alunos) || 0 }));
+  return rows.map((r) => ({
+    id: r.id, nome: r.nome, serie: r.serie, anoLetivo: r.ano_letivo,
+    alunos: Number(r.alunos) || 0, modoEstrito: Boolean(r.modo_estrito),
+  }));
+}
+
+// Modo estrito da turma: quando ligado, o tutor so responde com base no material
+// vinculado a turma (bloqueia o fallback BNCC/conhecimento geral). Decisao do gestor.
+export async function definirModoEstrito(escolaId: string, turmaId: string, ativo: boolean): Promise<void> {
+  await pool.query(
+    `update turmas set modo_estrito = $3 where id = $2 and escola_id = $1`,
+    [escolaId, turmaId, ativo],
+  );
 }
 
 export interface ProfessorLista { id: string; nome: string; email: string; disciplinas: string | null; turmas: number; }

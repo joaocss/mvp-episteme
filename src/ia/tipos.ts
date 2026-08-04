@@ -37,9 +37,11 @@ export interface TrechoBncc {
   score: number;
 }
 
-// Filtro de disciplina/serie (Fase 7: multi-serie/multi-disciplina). Ambos
-// opcionais; omitir = busca sem filtro (comportamento anterior).
-export interface FiltroConteudo { disciplina?: string; ano?: string }
+// Filtro de disciplina/serie (Fase 7: multi-serie/multi-disciplina) e de turma
+// (conteudo escopado por turma). Todos opcionais; omitir = busca sem aquele
+// filtro (comportamento anterior). Quando turmaId e informado, a busca no livro
+// retorna apenas trechos de materiais vinculados aquela turma.
+export interface FiltroConteudo { disciplina?: string; ano?: string; turmaId?: string }
 
 // Repositorio dos trechos: em memoria (demo/testes) ou no Supabase/pgvector.
 export interface RepositorioTrechos {

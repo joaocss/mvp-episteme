@@ -152,6 +152,12 @@ function montarPrompt(
   return `### REGRAS\n${regras}\n\n${regraFonte}\n\n${blocoContexto}${conversaAnterior}### PEDIDO DO ALUNO\n${pergunta}\n`;
 }
 
+// Escopo por turma: quando a turma do aluno tem material proprio vinculado,
+// turmaId restringe a busca no livro aos materiais daquela turma. modoEstrito
+// (configuravel por turma) bloqueia o fallback BNCC/conhecimento geral: se nao
+// achar no material da turma, o tutor recusa em vez de responder por fora.
+export interface OpcoesTurma { turmaId?: string; modoEstrito?: boolean }
+
 export async function responder(
   escolaId: string,
   pergunta: string,
@@ -160,8 +166,9 @@ export async function responder(
   imagemBase64?: string,
   disciplina = "matematica",
   ano = "6o ano",
+  opcoes: OpcoesTurma = {},
 ): Promise<ResultadoTutor> {
-  const filtro: FiltroConteudo = { disciplina, ano };
+  const filtro: FiltroConteudo = { disciplina, ano, turmaId: opcoes.turmaId };
   const eventos = guardrailEntrada(pergunta);
   const base: ResultadoTutor = { recusado: false, fontes: [], eventos, telemetria: { melhorScore: 0 } };
 
@@ -216,6 +223,10 @@ export async function responder(
 
   if (melhorScore >= LIMIAR_GROUNDING) {
     contexto = contextoDoLivro(fontes);
+  } else if (opcoes.modoEstrito) {
+    // Modo estrito da turma: sem trecho no material da turma, recusa (nao usa
+    // BNCC nem conhecimento geral). Guardrail de pertinencia por turma.
+    return { ...base, recusado: true, motivo: "fora_conteudo_turma", resposta: MENSAGEM_SEM_BASE };
   } else {
     let trechosBncc: TrechoBncc[] = [];
     if (dep.repositorio.buscarBncc) {
