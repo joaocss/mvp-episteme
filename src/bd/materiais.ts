@@ -6,6 +6,9 @@
 import { pool } from "./pool";
 
 export type StatusIngestao = "pendente" | "processando" | "concluido" | "erro";
+export type PapelAudiencia = "aluno" | "professor" | "gestor";
+// Regra de audiencia: 'escola' (todos) ou 'papel' (aluno/professor/gestor).
+export interface PublicoAudiencia { tipo: "escola" | "papel"; papel?: PapelAudiencia }
 
 export interface MaterialLista {
   id: string;
@@ -18,6 +21,7 @@ export interface MaterialLista {
   trechos: number;
   versao: number | null; // numero da versao vigente (null = material legado sem versao)
   turmas: { id: string; nome: string }[];
+  publicos: PublicoAudiencia[]; // audiencias por papel/escola (alem das turmas)
   criadoEm: string;
 }
 
@@ -154,6 +158,54 @@ const SQL_MATERIAIS_LEGADO = `
   group by m.id, ch.n
   order by m.criado_em desc`;
 
+// Substitui o conjunto de audiencias por papel/escola de um material.
+export async function definirPublicoDoMaterial(
+  escolaId: string, materialId: string, regras: PublicoAudiencia[],
+): Promise<void> {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("begin");
+    await cliente.query(
+      `delete from materiais_publico where escola_id = $1 and material_id = $2`,
+      [escolaId, materialId],
+    );
+    for (const r of regras) {
+      const papel = r.tipo === "papel" ? (r.papel ?? null) : null;
+      if (r.tipo === "papel" && !papel) continue; // regra invalida
+      await cliente.query(
+        `insert into materiais_publico (escola_id, material_id, tipo, papel) values ($1,$2,$3,$4)
+         on conflict (material_id, tipo, papel) do nothing`,
+        [escolaId, materialId, r.tipo, papel],
+      );
+    }
+    await cliente.query("commit");
+  } catch (e) {
+    await cliente.query("rollback");
+    throw e;
+  } finally {
+    cliente.release();
+  }
+}
+
+// Mapa material_id -> audiencias. Deploy-safe: tabela ausente = mapa vazio.
+async function publicosPorMaterial(escolaId: string): Promise<Map<string, PublicoAudiencia[]>> {
+  const mapa = new Map<string, PublicoAudiencia[]>();
+  try {
+    const { rows } = await pool.query(
+      `select material_id, tipo, papel from materiais_publico where escola_id = $1`,
+      [escolaId],
+    );
+    for (const r of rows) {
+      const lista = mapa.get(r.material_id) ?? [];
+      lista.push({ tipo: r.tipo, papel: r.papel ?? undefined });
+      mapa.set(r.material_id, lista);
+    }
+  } catch (e: any) {
+    if (!ERROS_SCHEMA_AUSENTE.has(e?.code)) throw e;
+  }
+  return mapa;
+}
+
 export async function listarMateriais(escolaId: string): Promise<MaterialLista[]> {
   let rows: any[];
   try {
@@ -163,6 +215,7 @@ export async function listarMateriais(escolaId: string): Promise<MaterialLista[]
     if (!ERROS_SCHEMA_AUSENTE.has(e?.code)) throw e;
     ({ rows } = await pool.query(SQL_MATERIAIS_LEGADO, [escolaId]));
   }
+  const mapaPublicos = await publicosPorMaterial(escolaId);
   return rows.map((r) => {
     const trechos = Number(r.trechos) || 0;
     // Materiais ingeridos via CLI antigo nunca setaram status_ingestao; se ja ha
@@ -180,6 +233,7 @@ export async function listarMateriais(escolaId: string): Promise<MaterialLista[]
       trechos,
       versao: r.versao_atual != null ? Number(r.versao_atual) : null,
       turmas: (typeof r.turmas === "string" ? JSON.parse(r.turmas) : r.turmas) as { id: string; nome: string }[],
+      publicos: mapaPublicos.get(r.id) ?? [],
       criadoEm: new Date(r.criado_em).toISOString(),
     };
   });

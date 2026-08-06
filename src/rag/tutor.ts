@@ -188,7 +188,9 @@ export async function responder(
   ano = "6o ano",
   opcoes: OpcoesTurma = {},
 ): Promise<ResultadoTutor> {
-  const filtro: FiltroConteudo = { disciplina, ano, turmaId: opcoes.turmaId };
+  // papel 'aluno': alem do conteudo da turma, a busca inclui docs de audiencia
+  // 'aluno' e 'escola' (ex.: regimento visivel a todos).
+  const filtro: FiltroConteudo = { disciplina, ano, turmaId: opcoes.turmaId, papel: "aluno" };
   const eventos = guardrailEntrada(pergunta);
   const base: ResultadoTutor = { recusado: false, fontes: [], eventos, telemetria: { melhorScore: 0 } };
 

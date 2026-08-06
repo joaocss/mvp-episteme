@@ -20,12 +20,25 @@ type CorSelo = NonNullable<VariantProps<typeof variantesSelo>["cor"]>;
 
 export interface TurmaOpcao { id: string; nome: string; serie: string; modoEstrito?: boolean }
 export interface DisciplinaOpcao { id: string; nome: string; slug: string }
+export interface PublicoUI { tipo: "escola" | "papel"; papel?: "aluno" | "professor" | "gestor" }
 export interface Material {
   id: string; tipo: string; disciplina: string; ano: string; titulo: string;
   referencia: string | null; statusIngestao: string; trechos: number;
   versao?: number | null;
-  turmas: { id: string; nome: string }[]; criadoEm: string;
+  turmas: { id: string; nome: string }[]; publicos?: PublicoUI[]; criadoEm: string;
 }
+
+// Opcoes de audiencia por papel/escola (so o gestor define). chave = valor serializado.
+const OPCOES_PUBLICO: { chave: string; rotulo: string; regra: PublicoUI }[] = [
+  { chave: "papel:professor", rotulo: "Todos os professores", regra: { tipo: "papel", papel: "professor" } },
+  { chave: "papel:gestor", rotulo: "Gestao / Coordenacao", regra: { tipo: "papel", papel: "gestor" } },
+  { chave: "escola", rotulo: "Toda a escola", regra: { tipo: "escola" } },
+];
+const rotuloPublico = (p: PublicoUI): string =>
+  p.tipo === "escola" ? "Toda a escola"
+    : p.papel === "professor" ? "Professores"
+    : p.papel === "gestor" ? "Gestao"
+    : p.papel === "aluno" ? "Alunos" : "Equipe";
 
 const COR_STATUS: Record<string, CorSelo> = {
   concluido: "sucesso", processando: "aviso", pendente: "neutro", erro: "alerta",
@@ -87,6 +100,7 @@ export default function GestaoMateriais({
   const [ano, setAno] = useState(seriesDisponiveis[0] ?? "6o ano");
   const [tipo, setTipo] = useState("apostila");
   const [turmasSel, setTurmasSel] = useState<string[]>([]);
+  const [publicosSel, setPublicosSel] = useState<string[]>([]); // chaves de OPCOES_PUBLICO (so gestor)
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [msg, setMsg] = useState("");
@@ -104,20 +118,28 @@ export default function GestaoMateriais({
   async function enviar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMsg(""); setOk("");
+    const soAudiencia = turmasSel.length === 0 && publicosSel.length > 0;
     if (!arquivo) { setMsg("Anexe um PDF."); return; }
-    if (!disciplina) { setMsg("Selecione a disciplina."); return; }
-    if (turmasSel.length === 0) { setMsg("Selecione ao menos uma turma."); return; }
+    if (turmasSel.length === 0 && publicosSel.length === 0) {
+      setMsg(ehGestor ? "Selecione ao menos uma turma ou audiencia." : "Selecione ao menos uma turma."); return;
+    }
+    if (!soAudiencia && !disciplina) { setMsg("Selecione a disciplina."); return; }
     setEnviando(true);
     try {
       const fd = new FormData();
-      fd.set("titulo", titulo); fd.set("disciplina", disciplina); fd.set("ano", ano);
-      fd.set("tipo", tipo); fd.set("arquivo", arquivo);
+      fd.set("titulo", titulo); fd.set("tipo", tipo); fd.set("arquivo", arquivo);
+      // Docs so-audiencia (regimento etc.) nao mandam disciplina/ano (a API usa placeholders).
+      if (!soAudiencia) { fd.set("disciplina", disciplina); fd.set("ano", ano); }
       for (const t of turmasSel) fd.append("turmaIds", t);
+      if (ehGestor && publicosSel.length) {
+        const regras = OPCOES_PUBLICO.filter((o) => publicosSel.includes(o.chave)).map((o) => o.regra);
+        fd.set("publicos", JSON.stringify(regras));
+      }
       const r = await fetch("/api/materiais", { method: "POST", body: fd });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { setMsg(d.erro ?? "Falha ao enviar."); await recarregar(); return; }
       setOk(mensagemResultado(titulo, d));
-      setTitulo(""); setArquivo(null); setTurmasSel([]);
+      setTitulo(""); setArquivo(null); setTurmasSel([]); setPublicosSel([]);
       const input = document.getElementById("arquivo-pdf") as HTMLInputElement | null;
       if (input) input.value = "";
       await recarregar();
@@ -259,6 +281,23 @@ export default function GestaoMateriais({
               </div>
             )}
           </div>
+
+          {ehGestor && (
+            <div className="sm:col-span-2">
+              <p className="rotulo-campo mb-1.5">Audiencia da equipe (opcional)</p>
+              <p className="mb-2 text-xs text-slate-400">
+                Documentos para a IA da equipe (ex.: regimento p/ toda a escola, orientacoes so p/ professores). Ignora serie/disciplina.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {OPCOES_PUBLICO.map((o) => (
+                  <ChipTurma key={o.chave} ativo={publicosSel.includes(o.chave)}
+                    onClick={() => setPublicosSel((a) => a.includes(o.chave) ? a.filter((x) => x !== o.chave) : [...a, o.chave])}>
+                    {o.rotulo}
+                  </ChipTurma>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
             <Botao disabled={enviando}>
               {enviando ? "Processando PDF…" : "Enviar e ingerir"}
@@ -325,9 +364,13 @@ export default function GestaoMateriais({
                         </div>
                       ) : (
                         <div className="flex flex-wrap gap-1">
-                          {m.turmas.length === 0
-                            ? <span className="text-xs text-slate-400">nenhuma</span>
-                            : m.turmas.map((t) => <Selo key={t.id} cor="roxo">{t.nome}</Selo>)}
+                          {m.turmas.map((t) => <Selo key={t.id} cor="roxo">{t.nome}</Selo>)}
+                          {(m.publicos ?? []).map((p, idx) => (
+                            <Selo key={`p${idx}`} cor="dourado">{rotuloPublico(p)}</Selo>
+                          ))}
+                          {m.turmas.length === 0 && (m.publicos ?? []).length === 0 && (
+                            <span className="text-xs text-slate-400">nenhuma</span>
+                          )}
                         </div>
                       )}
                     </td>

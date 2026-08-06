@@ -41,7 +41,13 @@ export interface TrechoBncc {
 // (conteudo escopado por turma). Todos opcionais; omitir = busca sem aquele
 // filtro (comportamento anterior). Quando turmaId e informado, a busca no livro
 // retorna apenas trechos de materiais vinculados aquela turma.
-export interface FiltroConteudo { disciplina?: string; ano?: string; turmaId?: string }
+// papel = papel de quem pergunta (audiencia por papel/escola na busca).
+// incluirConteudo = inclui o ramo de conteudo escolar (disciplina/ano/turma);
+// false = so audiencia (usado pelo assistente do professor).
+export interface FiltroConteudo {
+  disciplina?: string; ano?: string; turmaId?: string;
+  papel?: string; incluirConteudo?: boolean;
+}
 
 // Repositorio dos trechos: em memoria (demo/testes) ou no Supabase/pgvector.
 export interface RepositorioTrechos {

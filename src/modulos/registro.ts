@@ -80,6 +80,15 @@ export const MODULOS: Modulo[] = [
     ],
   },
   {
+    id: "assistente",
+    nome: "Assistente da equipe",
+    descricao: "IA que responde a professores e gestao a partir dos documentos com audiencia da equipe (regimento, orientacoes).",
+    essencial: false,
+    rotas: [
+      { rotulo: "Assistente", href: "/professor/assistente", icone: "tutor", papeis: ["professor", "gestor", "admin"], ordem: 15 },
+    ],
+  },
+  {
     id: "materiais",
     nome: "Materiais e conteudo",
     descricao: "Upload de PDFs (apostilas, capitulos, listas) que viram fonte do tutor, escopados por turma.",

@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import { lerToken } from "../../../lib/sessao";
 import {
   criarMaterial, listarMateriais, excluirMaterial, definirTurmasDoMaterial, vincularMaterialTurma,
-  materialPertenceAEscola,
+  materialPertenceAEscola, definirPublicoDoMaterial, type PublicoAudiencia,
 } from "../../../src/bd/materiais";
 import { ingerirPdfIncremental } from "../../../src/rag/ingestaoIncremental/pipeline";
 import { registrarAuditoria } from "../../../src/rag/repositorioConversas";
@@ -47,12 +47,18 @@ export async function POST(requisicao: Request) {
   // Ausente = criar um material novo (versao 1).
   const revisarId = String(form.get("materialId") ?? "").trim() || null;
   const titulo = String(form.get("titulo") ?? "").trim();
-  const disciplina = String(form.get("disciplina") ?? "").trim();
-  const ano = String(form.get("ano") ?? "").trim();
   const tipo = String(form.get("tipo") ?? "apostila").trim() || "apostila";
   const referencia = String(form.get("referencia") ?? "").trim() || null;
   const turmaIds = form.getAll("turmaIds").map((t) => String(t)).filter(Boolean);
+  // Audiencias por papel/escola: so gestor/admin pode definir (professor fica nas turmas).
+  const ehGestor = sessao.papel === "gestor" || sessao.papel === "admin";
+  const publicos = ehGestor ? parsePublicos(form.get("publicos")) : [];
   const arquivo = form.get("arquivo");
+  // Docs de audiencia (papel/escola) sem turma nao sao "materia": disciplina/ano
+  // viram placeholders e a busca por audiencia os ignora.
+  const soAudiencia = turmaIds.length === 0 && publicos.length > 0;
+  const disciplina = String(form.get("disciplina") ?? "").trim() || (soAudiencia ? "geral" : "");
+  const ano = String(form.get("ano") ?? "").trim() || (soAudiencia ? "todos" : "");
 
   if (!(arquivo instanceof File)) {
     return NextResponse.json({ erro: "anexe um arquivo PDF" }, { status: 400 });
@@ -77,6 +83,7 @@ export async function POST(requisicao: Request) {
     }
     materialId = await criarMaterial(esc, { tipo, disciplina, ano, titulo, referencia });
     for (const turmaId of turmaIds) await vincularMaterialTurma(esc, materialId, turmaId);
+    if (publicos.length) await definirPublicoDoMaterial(esc, materialId, publicos);
   }
 
   try {
@@ -103,11 +110,33 @@ export async function PATCH(requisicao: Request) {
     return NextResponse.json({ erro: "acesso restrito" }, { status: 403 });
   }
   const d = await requisicao.json().catch(() => ({}));
-  if (!d.materialId || !Array.isArray(d.turmaIds)) {
-    return NextResponse.json({ erro: "dados incompletos" }, { status: 400 });
+  if (!d.materialId) return NextResponse.json({ erro: "material nao informado" }, { status: 400 });
+  if (Array.isArray(d.turmaIds)) {
+    await definirTurmasDoMaterial(sessao.escolaId, d.materialId, d.turmaIds.map(String));
   }
-  await definirTurmasDoMaterial(sessao.escolaId, d.materialId, d.turmaIds.map(String));
+  // Audiencias por papel/escola: so gestor/admin.
+  if (Array.isArray(d.publicos) && (sessao.papel === "gestor" || sessao.papel === "admin")) {
+    await definirPublicoDoMaterial(sessao.escolaId, d.materialId, normalizarPublicos(d.publicos));
+  }
   return NextResponse.json({ ok: true });
+}
+
+// Normaliza/valida regras de audiencia vindas do cliente.
+function normalizarPublicos(bruto: unknown): PublicoAudiencia[] {
+  if (!Array.isArray(bruto)) return [];
+  const out: PublicoAudiencia[] = [];
+  for (const r of bruto) {
+    if (r?.tipo === "escola") out.push({ tipo: "escola" });
+    else if (r?.tipo === "papel" && ["aluno", "professor", "gestor"].includes(r?.papel)) {
+      out.push({ tipo: "papel", papel: r.papel });
+    }
+  }
+  return out;
+}
+
+function parsePublicos(campo: FormDataEntryValue | null): PublicoAudiencia[] {
+  if (typeof campo !== "string" || !campo.trim()) return [];
+  try { return normalizarPublicos(JSON.parse(campo)); } catch { return []; }
 }
 
 export async function DELETE(requisicao: Request) {

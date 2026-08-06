@@ -35,8 +35,12 @@ export class RepositorioPostgres implements RepositorioTrechos {
 
   async buscar(escolaId: string, consulta: number[], limite: number, filtro?: FiltroConteudo): Promise<TrechoRecuperado[]> {
     const { rows } = await pool.query(
-      "select chunk_id, texto, metadados, score from buscar_trechos($1, $2::vector, $3, $4, $5, $6)",
-      [escolaId, vetorLiteral(consulta), limite, filtro?.disciplina ?? null, filtro?.ano ?? null, filtro?.turmaId ?? null],
+      "select chunk_id, texto, metadados, score from buscar_trechos($1, $2::vector, $3, $4, $5, $6, $7, $8)",
+      [
+        escolaId, vetorLiteral(consulta), limite,
+        filtro?.disciplina ?? null, filtro?.ano ?? null, filtro?.turmaId ?? null,
+        filtro?.papel ?? null, filtro?.incluirConteudo ?? true,
+      ],
     );
     return rows.map((r) => ({
       chunkId: r.chunk_id,
