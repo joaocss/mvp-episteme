@@ -13,6 +13,18 @@ import DuvidaQuestao from "./DuvidaQuestao";
 
 type TipoQuestao = "objetiva" | "dissertativa";
 interface Alternativa { letra: string; texto: string; }
+
+// Anti-cola (deterrente client-side): impede copiar/recortar/selecionar o
+// enunciado (evita colar a pergunta numa IA externa) e colar texto pronto na
+// resposta dissertativa. Nao e a prova de tudo (screenshot/redigitar existem),
+// mas corta o caminho facil do Ctrl+C/Ctrl+V, alinhado ao combate a "descarga
+// cognitiva".
+const semCopia = {
+  onCopy: (e: React.ClipboardEvent) => e.preventDefault(),
+  onCut: (e: React.ClipboardEvent) => e.preventDefault(),
+  onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+  onDragStart: (e: React.DragEvent) => e.preventDefault(),
+};
 interface Questao {
   id: string; ordem: number; tipo: TipoQuestao; enunciado: string; alternativas: Alternativa[] | null;
   numeroQuestoes: number; tituloProva: string;
@@ -42,6 +54,7 @@ export default function ResolverProva() {
   const [resultado, setResultado] = useState<ResultadoProva | null>(null);
 
   const [resposta, setResposta] = useState("");
+  const [avisoColar, setAvisoColar] = useState(false);
   const [respondida, setRespondida] = useState<{ correta: boolean | null } | null>(null);
   const [dica, setDica] = useState("");
   const [gabarito, setGabarito] = useState<{ gabarito: string; explicacao: string | null } | null>(null);
@@ -49,7 +62,7 @@ export default function ResolverProva() {
   const [acaoCarregando, setAcaoCarregando] = useState("");
 
   async function carregarProxima() {
-    setCarregando(true); setErro(""); setResposta(""); setRespondida(null); setDica(""); setGabarito(null); setFeedback(null);
+    setCarregando(true); setErro(""); setResposta(""); setAvisoColar(false); setRespondida(null); setDica(""); setGabarito(null); setFeedback(null);
     try {
       const d = await chamar("proxima-questao", { provaId });
       if (d.questao) {
@@ -151,14 +164,14 @@ export default function ResolverProva() {
     <div>
       {voltar}
       <p className="mt-2 text-sm text-slate-500">{questao.tituloProva} — Questao {questao.ordem} de {questao.numeroQuestoes}</p>
-      <h1 className="mt-1 text-lg font-semibold text-grafite">{questao.enunciado}</h1>
+      <h1 className="mt-1 select-none text-lg font-semibold text-grafite" {...semCopia}>{questao.enunciado}</h1>
 
       {erro && <p className="mt-3 text-sm text-alerta" role="alert">{erro}</p>}
 
       {!respondida ? (
         <div className="mt-4 space-y-3">
           {questao.tipo === "objetiva" ? (
-            <div className="space-y-2">
+            <div className="select-none space-y-2" {...semCopia}>
               {questao.alternativas?.map((a) => (
                 <label key={a.letra} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition ${
                   resposta === a.letra ? "border-roxo bg-roxo-suave" : "border-borda bg-white hover:bg-tela"}`}>
@@ -170,8 +183,20 @@ export default function ResolverProva() {
             </div>
           ) : (
             <>
-              <textarea value={resposta} onChange={(e) => setResposta(e.target.value)} rows={5}
-                placeholder="Escreva sua resposta…" className="campo min-h-[120px]" />
+              <textarea
+                value={resposta}
+                onChange={(e) => setResposta(e.target.value)}
+                onPaste={(e) => { e.preventDefault(); setAvisoColar(true); }}
+                onDrop={(e) => e.preventDefault()}
+                rows={5}
+                placeholder="Escreva sua resposta com as suas palavras…"
+                className="campo min-h-[120px]"
+              />
+              {avisoColar && (
+                <p className="text-xs text-aviso">
+                  Colar está desativado nesta prova — escreva a resposta com as suas palavras.
+                </p>
+              )}
               <Botao variante="secundario" tamanho="pequeno" onClick={pedirPassoAPasso} disabled={acaoCarregando === "passo"}>
                 {acaoCarregando === "passo" ? "Pensando…" : "Ver Passo a Passo"}
               </Botao>
