@@ -60,8 +60,9 @@ codigo/
 │   ├── componentes/          # Marca + ui/ (Botao, Cartao)
 │   └── api/                  # rotas: login, cadastro, gestor/gestao, tutor/*, professor/*
 ├── src/
-│   ├── bd/                   # acesso ao Postgres (pool, gestao, gestor, professor, aluno…)
+│   ├── bd/                   # acesso ao Postgres (pool, gestao, gestor, professor, aluno, modulos…)
 │   ├── ia/                   # fábricas + provedores (gemini/openai/ollama/mock), guardrails
+│   ├── modulos/             # registro.ts: catálogo de módulos (FONTE DE VERDADE da nav)
 │   └── rag/                  # pipeline do tutor, ingestão, repositórios, planejamento
 ├── lib/                      # sessao (cookie HMAC), senha (hash), utils (cn)
 ├── supabase/migrations/      # FONTE DE VERDADE do schema (aplicada pelo CLI)
@@ -179,6 +180,22 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   do material da turma (não usa BNCC/geral). Sem material vinculado, a turma
   mantém o comportamento legado (não quebra turmas antigas).
 
+- **Fase 9 — Modularização (fundação):** o catálogo de funcionalidades virou um
+  **registro de módulos** em `src/modulos/registro.ts` (FONTE DE VERDADE): cada
+  módulo é um objeto `{ id, nome, essencial, rotas[] }`, cada rota amarrada aos
+  papéis que a veem + `ordem` na nav. `montarNav(papel, habilitados)` deriva a
+  barra lateral daí (antes era um mapa estático `NAV_POR_PAPEL` no `LayoutApp`).
+  Módulos **essenciais** (tutor, cadastros, segurança, visão-geral, admin) são
+  sempre ligados; **opcionais** (provas, planejamento, materiais, desempenho,
+  analytics) a escola liga/desliga em `/gestor/modulos` (`PainelModulos.tsx` +
+  `app/api/gestor/modulos`). Estado por escola em `modulos_escola` (migration
+  `20260806000100`), lido por `src/bd/modulos.ts` — **deploy-safe**: tabela
+  ausente = tudo habilitado. Ao adicionar uma feature nova, registrá-la como um
+  módulo aqui em vez de hardcodar rota na nav.
+  Redesign da tela de Materiais (`GestaoMateriais.tsx`) migrado 100% para os
+  tokens/componentes da marca (Cartao/Botao/Campo/Selo) — sem hex hardcoded;
+  é o exemplar visual a seguir ao redesenhar outras telas.
+
 ## Roadmap (ordem do brief)
 
 - **B — Gestão de alunos:** reenturmar aluno (UI; `definirTurmaAluno` já existe),
@@ -210,9 +227,15 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   parágrafos gigantes por frase (PDF costuma vir sem linha em branco entre
   parágrafos, senão viraria 1 chunk único). Teste sem banco:
   `npx tsx local/testarExtracaoPdf.ts <caminho.pdf>`.
-- **Migration `20260803000100` ainda NÃO foi aplicada** (nem local nem cloud) —
-  aplicar antes de usar a Fase 8 (`supabase migration up` local / `supabase db
-  push` cloud).
+- **Migration `20260803000100` (Fase 8) já foi aplicada** em produção — o commit
+  de provisionamento do tenant de demonstração depende dela. (A nota antiga de
+  "não aplicada" ficou desatualizada.)
+- **Migration `20260806000100_modulos_por_escola` (Fase 9)**: a habilitação de
+  módulos por escola é **deploy-safe** — `src/bd/modulos.ts` trata a tabela
+  ausente como "tudo habilitado" (try/catch no código `42P01`), então a app não
+  quebra antes da migration rodar. Aplicar (`supabase migration up` / `db push`)
+  para o toggle em `/gestor/modulos` passar a **persistir**; sem ela, os toggles
+  não gravam mas nada quebra.
 - Supabase local exige Docker. No Windows do João, o Docker Desktop
   (`%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe`) precisa ser aberto
   manualmente e concluir o setup na 1ª vez; o daemon não sobe só via CLI.

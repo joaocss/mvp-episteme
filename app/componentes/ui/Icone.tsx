@@ -5,7 +5,8 @@ import * as React from "react";
 export type NomeIcone =
   | "painel" | "cadastros" | "materiais" | "reenturmar" | "alunos" | "desempenho"
   | "relatorios" | "logs" | "config" | "provas" | "planos" | "tutor" | "sair"
-  | "menu" | "fechar" | "usuario" | "mais" | "upload" | "escola" | "bussola" | "seta";
+  | "menu" | "fechar" | "usuario" | "mais" | "upload" | "escola" | "bussola" | "seta"
+  | "modulos" | "lixeira" | "documento" | "versao" | "verificado";
 
 const CAMINHOS: Record<NomeIcone, React.ReactNode> = {
   painel: <><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></>,
@@ -29,6 +30,11 @@ const CAMINHOS: Record<NomeIcone, React.ReactNode> = {
   escola: <><path d="M3 10 12 4l9 6" /><path d="M5 10v9h14v-9" /><path d="M10 19v-4h4v4" /></>,
   bussola: <><circle cx="12" cy="12" r="9" /><path d="M15.5 8.5 13 13l-4.5 2.5L11 11z" /></>,
   seta: <><path d="M9 6l6 6-6 6" /></>,
+  modulos: <><rect x="3.5" y="3.5" width="7" height="7" rx="1.3" /><rect x="13.5" y="3.5" width="7" height="7" rx="1.3" /><rect x="3.5" y="13.5" width="7" height="7" rx="1.3" /><rect x="13.5" y="13.5" width="7" height="7" rx="1.3" /></>,
+  lixeira: <><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M10 11v6M14 11v6" /></>,
+  documento: <><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M13 3v4h4" /></>,
+  versao: <><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v4h4" /><path d="M12 8v4l3 2" /></>,
+  verificado: <><circle cx="12" cy="12" r="9" /><path d="M8.5 12.5l2.2 2.2L15.5 10" /></>,
 };
 
 export function Icone({
