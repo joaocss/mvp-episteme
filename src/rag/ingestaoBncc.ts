@@ -11,8 +11,13 @@ function vetorLiteral(v: number[]): string { return `[${v.join(",")}]`; }
 async function principal() {
   const embeddings = criarEmbeddings();
   console.log(`Embeddings: ${embeddings.nome}`);
-  const { rows } = await pool.query(`select codigo, descricao from competencias_bncc order by codigo`);
-  console.log(`Habilidades a processar: ${rows.length}`);
+  // So etiqueta as habilidades ainda sem embedding (re-runs baratos: apos
+  // acrescentar habilidades novas via migration, so as novas sao vetorizadas).
+  const { rows } = await pool.query(
+    `select codigo, descricao from competencias_bncc where embedding is null order by codigo`,
+  );
+  console.log(`Habilidades a processar (sem embedding): ${rows.length}`);
+  if (rows.length === 0) { console.log("Nada a fazer."); await pool.end(); return; }
 
   const textos = rows.map((r: any) => r.descricao as string);
   const vetores = typeof embeddings.gerarLote === "function"
