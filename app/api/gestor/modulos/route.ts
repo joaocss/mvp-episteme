@@ -32,10 +32,12 @@ export async function POST(requisicao: Request) {
     return NextResponse.json({ erro: "dados incompletos" }, { status: 400 });
   }
   await definirModulo(sessao.escolaId, d.moduloId, d.habilitado);
+  // auditoria.entidade_id e UUID; o modulo e um slug de texto, entao vai no
+  // 'acao' e entidade_id fica null.
   await registrarAuditoria(
     sessao.escolaId, sessao.usuarioId,
-    d.habilitado ? "modulo.habilitar" : "modulo.desabilitar",
-    "modulos_escola", d.moduloId, randomUUID(),
+    `${d.habilitado ? "modulo.habilitar" : "modulo.desabilitar"}:${d.moduloId}`,
+    "modulos_escola", null, randomUUID(),
   );
   return NextResponse.json({ ok: true });
 }
