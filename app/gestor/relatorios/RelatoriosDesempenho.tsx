@@ -20,6 +20,7 @@ export interface RelatorioDados {
   porMes: { mes: string; media: number }[];
   distribuicao: { faixa: string; qtd: number }[];
   porDisciplina: { disciplina: string; media: number; avaliacoes: number }[];
+  porCompetencia: { codigo: string; descricao: string; disciplina: string; qtd: number }[];
 }
 
 function Kpi({ rotulo, valor, sufixo = "" }: { rotulo: string; valor: number; sufixo?: string }) {
@@ -73,6 +74,8 @@ export default function RelatoriosDesempenho({
 
   const disc = (slug: string) => rotuloDisciplina[slug] ?? slug;
   const semNotas = dados.geral.avaliacoes === 0;
+  const competencias = dados.porCompetencia ?? [];
+  const maxComp = competencias.reduce((m, c) => Math.max(m, c.qtd), 0);
 
   return (
     <div className="space-y-5">
@@ -113,6 +116,32 @@ export default function RelatoriosDesempenho({
         <Kpi rotulo="Avaliações" valor={dados.geral.avaliacoes} />
         <Kpi rotulo="Alunos avaliados" valor={dados.geral.alunos} />
       </div>
+
+      {/* Competencias mais trabalhadas (engajamento no tutor, por competencia BNCC) */}
+      {competencias.length > 0 && (
+        <section className="cartao p-5">
+          <h2 className="text-base font-semibold text-roxo">Competências mais trabalhadas no tutor</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Habilidades da BNCC mais presentes nas perguntas dos alunos ao tutor (respeita os filtros). Indica onde há mais dúvida/interesse.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {competencias.map((c) => (
+              <li key={c.codigo} className="flex items-center gap-3">
+                <span className="w-24 shrink-0 font-mono text-xs text-roxo">{c.codigo}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm text-grafite" title={c.descricao}>{c.descricao}</span>
+                    <span className="shrink-0 text-xs font-medium text-slate-500">{c.qtd}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-full rounded-full bg-roxo" style={{ width: `${maxComp ? (c.qtd / maxComp) * 100 : 0}%` }} />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {semNotas ? (
         <div className="cartao p-6 text-center text-slate-500">

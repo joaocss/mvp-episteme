@@ -15,6 +15,7 @@ export interface LinhaAluno { alunoId: string; aluno: string; turma: string; dis
 export interface PontoMes { mes: string; media: number; }
 export interface FaixaDist { faixa: string; qtd: number; }
 export interface PorDisciplina { disciplina: string; media: number; avaliacoes: number; }
+export interface CompetenciaTrabalhada { codigo: string; descricao: string; disciplina: string; qtd: number; }
 
 export interface Relatorio {
   geral: { media: number; aprovacao: number; avaliacoes: number; alunos: number };
@@ -22,6 +23,7 @@ export interface Relatorio {
   porMes: PontoMes[];
   distribuicao: FaixaDist[];
   porDisciplina: PorDisciplina[];
+  porCompetencia: CompetenciaTrabalhada[];
 }
 
 const LIMIAR_APROVACAO = 0.6;
@@ -37,10 +39,24 @@ function montarFiltro(escolaId: string, f: FiltroRelatorio): { where: string; pa
   return { where, params };
 }
 
+// WHERE da dimensao de competencias (tabela interacoes + competencias_bncc),
+// espelhando os mesmos filtros (turma via matricula do aluno, disciplina da
+// competencia BNCC, periodo pela data da interacao).
+function montarFiltroCompetencia(escolaId: string, f: FiltroRelatorio): { where: string; params: unknown[] } {
+  const params: unknown[] = [escolaId];
+  let where = "i.escola_id = $1 and i.competencia_bncc is not null";
+  if (f.turmaId) { params.push(f.turmaId); where += ` and m.turma_id = $${params.length}`; }
+  if (f.disciplina) { params.push(f.disciplina); where += ` and cb.disciplina = $${params.length}`; }
+  if (f.dataInicio) { params.push(f.dataInicio); where += ` and i.criado_em >= $${params.length}`; }
+  if (f.dataFim) { params.push(f.dataFim); where += ` and i.criado_em < ($${params.length}::date + interval '1 day')`; }
+  return { where, params };
+}
+
 export async function gerarRelatorio(escolaId: string, f: FiltroRelatorio): Promise<Relatorio> {
   const { where, params } = montarFiltro(escolaId, f);
+  const fc = montarFiltroCompetencia(escolaId, f);
 
-  const [geral, porAluno, porMes, distribuicao, porDisciplina] = await Promise.all([
+  const [geral, porAluno, porMes, distribuicao, porDisciplina, porCompetencia] = await Promise.all([
     pool.query(
       `select avg(n.valor / n.nota_maxima) as media,
               avg((n.valor / n.nota_maxima >= ${LIMIAR_APROVACAO})::int::float) as aprovacao,
@@ -74,6 +90,16 @@ export async function gerarRelatorio(escolaId: string, f: FiltroRelatorio): Prom
       `select n.disciplina, avg(n.valor / n.nota_maxima) as media, count(*) as avaliacoes
        from notas n where ${where}
        group by n.disciplina order by media desc`, params),
+    pool.query(
+      `select cb.codigo, cb.descricao, cb.disciplina, count(*) as qtd
+       from interacoes i
+       join sessoes_tutor s on s.id = i.sessao_id
+       join competencias_bncc cb on cb.codigo = i.competencia_bncc
+       left join matriculas m on m.aluno_id = s.aluno_id
+       where ${fc.where}
+       group by cb.codigo, cb.descricao, cb.disciplina
+       order by qtd desc
+       limit 12`, fc.params),
   ]);
 
   const pct = (v: unknown) => Math.round((Number(v) || 0) * 1000) / 10; // 1 casa, em %
@@ -91,6 +117,9 @@ export async function gerarRelatorio(escolaId: string, f: FiltroRelatorio): Prom
     distribuicao: distribuicao.rows.map((r) => ({ faixa: r.faixa, qtd: Number(r.qtd) || 0 })),
     porDisciplina: porDisciplina.rows.map((r) => ({
       disciplina: r.disciplina, media: pct(r.media), avaliacoes: Number(r.avaliacoes) || 0,
+    })),
+    porCompetencia: porCompetencia.rows.map((r) => ({
+      codigo: r.codigo, descricao: r.descricao, disciplina: r.disciplina, qtd: Number(r.qtd) || 0,
     })),
   };
 }
