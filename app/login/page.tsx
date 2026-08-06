@@ -124,6 +124,9 @@ export default function PaginaLogin() {
           >
             {modo === "entrar" ? "Nao tem conta? Cadastre-se" : "Ja tem conta? Entrar"}
           </button>
+          <p className="mt-4 text-center text-xs text-slate-400">
+            <a href="/privacidade" className="hover:text-roxo hover:underline">Termo de privacidade</a>
+          </p>
         </div>
       </div>
     </main>

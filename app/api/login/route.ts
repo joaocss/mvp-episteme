@@ -18,7 +18,15 @@ export async function POST(requisicao: Request) {
   resposta.cookies.set(
     "sessao_aluno",
     criarToken({ usuarioId: usuario.id, escolaId: usuario.escolaId, papel: usuario.papel }),
-    { httpOnly: true, path: "/", sameSite: "lax", maxAge: 604800 },
+    {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+      // secure em producao: o cookie de sessao so trafega por HTTPS. Em dev
+      // (http://localhost) fica desligado para o login funcionar localmente.
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 604800,
+    },
   );
   return resposta;
 }

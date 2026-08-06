@@ -1,12 +1,14 @@
 import { exigirPapel } from "../../lib/sessaoServidor";
 import { obterUsuarioBasico } from "../../src/bd/usuarios";
 import { filhosDoResponsavel, resumoFilho } from "../../src/bd/responsavel";
+import { termoVigente, alunosComConsentimento } from "../../src/bd/consentimento";
 import { LayoutApp } from "../componentes/LayoutApp";
 import { CabecalhoPagina } from "../componentes/ui/CabecalhoPagina";
 import { Cartao } from "../componentes/ui/Cartao";
 import { Selo } from "../componentes/ui/Selo";
 import { Icone } from "../componentes/ui/Icone";
 import { EstadoVazio } from "../componentes/ui/EstadoVazio";
+import BannerConsentimento from "../componentes/BannerConsentimento";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +20,10 @@ export default async function PaginaResponsavel() {
   const usuario = await obterUsuarioBasico(sessao.escolaId, sessao.usuarioId);
   const email = usuario?.email ?? "";
   const filhos = email ? await filhosDoResponsavel(sessao.escolaId, email) : [];
+  const termo = await termoVigente();
+  const consentidos = termo
+    ? await alunosComConsentimento(sessao.escolaId, termo.versao, filhos.map((f) => f.alunoId))
+    : new Set<string>();
   const comResumo = await Promise.all(
     filhos.map(async (f) => ({ filho: f, resumo: await resumoFilho(sessao.escolaId, email, f.alunoId) })),
   );
@@ -38,6 +44,11 @@ export default async function PaginaResponsavel() {
         ) : (
           comResumo.map(({ filho, resumo }) => (
             <Cartao key={filho.alunoId} className="p-5">
+              {termo && !consentidos.has(filho.alunoId) && (
+                <div className="mb-4">
+                  <BannerConsentimento alunoId={filho.alunoId} alunoNome={filho.nome} />
+                </div>
+              )}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-roxo-suave text-roxo">
