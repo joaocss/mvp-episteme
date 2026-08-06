@@ -6,7 +6,7 @@ export type NomeIcone =
   | "painel" | "cadastros" | "materiais" | "reenturmar" | "alunos" | "desempenho"
   | "relatorios" | "logs" | "config" | "provas" | "planos" | "tutor" | "sair"
   | "menu" | "fechar" | "usuario" | "mais" | "upload" | "escola" | "bussola" | "seta"
-  | "modulos" | "lixeira" | "documento" | "versao" | "verificado";
+  | "modulos" | "lixeira" | "documento" | "versao" | "verificado" | "treino" | "pdf";
 
 const CAMINHOS: Record<NomeIcone, React.ReactNode> = {
   painel: <><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></>,
@@ -35,6 +35,8 @@ const CAMINHOS: Record<NomeIcone, React.ReactNode> = {
   documento: <><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M13 3v4h4" /></>,
   versao: <><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v4h4" /><path d="M12 8v4l3 2" /></>,
   verificado: <><circle cx="12" cy="12" r="9" /><path d="M8.5 12.5l2.2 2.2L15.5 10" /></>,
+  treino: <><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" /></>,
+  pdf: <><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M13 3v4h4" /><path d="M8.5 14h1.2a1.3 1.3 0 0 1 0 2.6H8.5V14zM8.5 16.6V19M13 14v5M13 14h1.6M13 16.4h1.3" /></>,
 };
 
 export function Icone({

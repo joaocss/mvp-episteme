@@ -81,6 +81,16 @@ export const MODULOS: Modulo[] = [
     ],
   },
   {
+    id: "treinador",
+    nome: "Modo Treinador",
+    descricao: "Dever de casa anti-muleta: a IA da pistas e registra o processo do aluno, sem entregar a resposta.",
+    essencial: false,
+    rotas: [
+      { rotulo: "Treinos", href: "/professor/treinos", icone: "treino", papeis: ["professor"], ordem: 25 },
+      { rotulo: "Treinos", href: "/treinos", icone: "treino", papeis: ["aluno"], ordem: 15 },
+    ],
+  },
+  {
     id: "provas",
     nome: "Provas e avaliacoes",
     descricao: "Elaboracao de provas com IA, correcao assistida e resposta do aluno questao a questao.",

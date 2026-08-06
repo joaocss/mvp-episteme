@@ -217,6 +217,22 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   Teste sem banco: `npx tsx local/testarIncremental.ts`. O `ingestaoPdf.ts`
   antigo permanece (não é mais chamado pela rota, mas serve de referência).
 
+- **Fase 11 — Modo Treinador (dever de casa anti-muleta):** migration
+  `20260806000300_modo_treinador`. Extensão da filosofia "parceira cognitiva"
+  para a tarefa de casa: a IA dá **pistas** e registra o **processo** do aluno,
+  sem entregar a resposta. Schema: `treinos` (desafio do professor p/ turma),
+  `treino_sessoes` (tentativa de um aluno, `pistas_usadas`/`resposta_final`/
+  `reflexao`), `treino_interacoes` (o log do processo: tentativa/pista/
+  resposta_final/reflexao). Pipeline `src/rag/treinador.ts` (`orientar()`) reusa
+  guardrails/embeddings/grounding do tutor, mas com prompt que **retém a
+  resposta** e dá 1 pista socrática por vez (grounding opcional — foco é o
+  processo, não um fato do livro). bd em `src/bd/treinos.ts`. Módulo `treinador`
+  (opcional) no registry. Rotas: professor `/professor/treinos` (criar/publicar/
+  ver processo em `[id]`), aluno `/treinos` (lista) + `/treinos/[id]` (coaching
+  chat + resposta final + reflexão). APIs `app/api/treinos` (professor CRUD) e
+  `app/api/treino-sessao` (aluno: orientar/concluir). Middleware protege
+  `/treinos` e `/api/treino-sessao`.
+
 ## Roadmap (ordem do brief)
 
 - **B — Gestão de alunos:** reenturmar aluno (UI; `definirTurmaAluno` já existe),
