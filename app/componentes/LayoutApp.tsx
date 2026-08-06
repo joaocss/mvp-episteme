@@ -14,6 +14,7 @@ const ROTULO_PAPEL: Record<string, string> = {
   admin: "Administrador",
   professor: "Professor",
   aluno: "Aluno",
+  responsavel: "Responsável",
 };
 
 export async function LayoutApp({

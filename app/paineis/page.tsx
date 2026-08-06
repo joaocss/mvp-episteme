@@ -11,7 +11,7 @@ const PAINEIS: Painel[] = [
   { papel: "gestor", titulo: "Gestor", icone: "painel", descricao: "Indicadores da escola, turmas, professores e alunos." },
   { papel: "professor", titulo: "Professor", icone: "provas", descricao: "Provas, planejamento e acompanhamento das turmas." },
   { papel: "aluno", titulo: "Aluno", icone: "tutor", descricao: "Tutor de IA, provas e feedback do seu aprendizado." },
-  { papel: "responsavel", titulo: "Responsavel", icone: "usuario", descricao: "Acompanhamento do estudante (em breve).", futuro: true },
+  { papel: "responsavel", titulo: "Responsavel", icone: "usuario", descricao: "Acompanhe notas, faltas e a atividade do seu filho." },
 ];
 
 export default function PaginaPaineis() {

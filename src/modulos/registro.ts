@@ -12,7 +12,7 @@
 // (tutor, cadastros, seguranca) nao podem ser desligados: sao o piso do produto.
 import type { NomeIcone } from "../../app/componentes/ui/Icone";
 
-export type Papel = "gestor" | "admin" | "professor" | "aluno";
+export type Papel = "gestor" | "admin" | "professor" | "aluno" | "responsavel";
 
 // Uma entrada de navegacao dentro de um modulo. `ordem` posiciona o item na
 // barra lateral (menor = mais acima); e global por papel, entao um mesmo modulo
@@ -57,6 +57,15 @@ export const MODULOS: Modulo[] = [
     essencial: true,
     rotas: [
       { rotulo: "Tutor", href: "/tutor", icone: "tutor", papeis: ["aluno"], ordem: 10, prefixo: false },
+    ],
+  },
+  {
+    id: "responsavel",
+    nome: "Acompanhamento (responsavel)",
+    descricao: "Painel do responsavel: acompanha notas, faltas e atividade do filho (somente leitura).",
+    essencial: true,
+    rotas: [
+      { rotulo: "Acompanhamento", href: "/responsavel", icone: "alunos", papeis: ["responsavel"], ordem: 10, prefixo: false },
     ],
   },
   {

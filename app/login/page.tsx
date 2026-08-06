@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { Icone } from "../componentes/ui/Icone";
 
-const ROTA_PAPEL: Record<string, string> = { gestor: "/gestor", professor: "/professor", aluno: "/tutor" };
-const TITULO_PAPEL: Record<string, string> = { gestor: "Gestor", professor: "Professor", aluno: "Aluno" };
+const ROTA_PAPEL: Record<string, string> = { gestor: "/gestor", professor: "/professor", aluno: "/tutor", responsavel: "/responsavel" };
+const TITULO_PAPEL: Record<string, string> = { gestor: "Gestor", professor: "Professor", aluno: "Aluno", responsavel: "Responsável" };
 
 export default function PaginaLogin() {
   const [modo, setModo] = useState<"entrar" | "cadastrar">("entrar");
