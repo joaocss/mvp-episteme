@@ -244,6 +244,34 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   dissertativas com pauta para resposta. Botão "Imprimir prova" em
   `/professor/provas/[id]`. Componente `BarraImpressao.tsx` (some na impressão).
 
+- **Fase 13 — BNCC Português/História:** migration `20260806000400` acrescenta um
+  conjunto **curado** (não exaustivo — conferir contra a BNCC oficial) de
+  habilidades de Português 6º e História 7º em `competencias_bncc`. Antes só
+  Matemática tinha, então a 2ª camada de grounding não funcionava nessas
+  disciplinas. Embeddings gerados por `src/rag/ingestaoBncc.ts` (agora só
+  vetoriza linhas com `embedding is null` — re-runs baratos). Rodar o script
+  após aplicar a migration. Local: matematica 34, historia 12, portugues 10.
+
+- **Fase 14 — Analytics por competência:** `/gestor/relatorios` já tinha filtros
+  turma/disciplina/período + CSV; acrescentado o painel "Competências mais
+  trabalhadas no tutor" (top habilidades BNCC por `interacoes.competencia_bncc`,
+  respeitando os filtros) em `src/bd/relatorios.ts` (`porCompetencia`).
+
+- **Fase 15 — Painel do Responsável:** ativa o papel `responsavel` (antes só card
+  "em breve"). Vínculo responsável→aluno **reusa `responsaveis` (Fase 5) por
+  email** (sem tabela nova): o responsável loga e vê os alunos cujo registro em
+  `responsaveis` tem o mesmo email. `/responsavel` (read-only): notas recentes,
+  faltas, treinos concluídos e última atividade no tutor por filho. bd em
+  `src/bd/responsavel.ts`. Papel adicionado ao tipo `Papel`, `ROTULO_PAPEL`,
+  `ROTA_PAPEL`/`TITULO_PAPEL` (login), middleware e card de `/paineis`.
+
+> **Verificação em runtime (Docker local, 06/ago):** módulos (toggle+nav),
+> materiais version-aware, Modo Treinador (loop completo com LLM real, coach
+> retém a resposta), BNCC (56 habilidades embeddadas), Responsável (login+vínculo
+> por email) — todos OK. Bug achado e corrigido: audit de módulo usava slug em
+> coluna UUID (`5e097b3`). Migrations 100/200/300/400 aplicadas no LOCAL; no
+> CLOUD ainda não. Provas-PDF não testada em runtime (sem prova no seed).
+
 ## Roadmap (ordem do brief)
 
 - **B — Gestão de alunos:** reenturmar aluno (UI; `definirTurmaAluno` já existe),
