@@ -111,6 +111,11 @@ export async function PATCH(requisicao: Request) {
   }
   const d = await requisicao.json().catch(() => ({}));
   if (!d.materialId) return NextResponse.json({ erro: "material nao informado" }, { status: 400 });
+  // Posse: o material precisa ser DESTA escola antes de qualquer escrita
+  // (senao um gestor da escola A alteraria audiencia de material da escola B).
+  if (!(await materialPertenceAEscola(sessao.escolaId, String(d.materialId)))) {
+    return NextResponse.json({ erro: "material nao encontrado" }, { status: 404 });
+  }
   if (Array.isArray(d.turmaIds)) {
     await definirTurmasDoMaterial(sessao.escolaId, d.materialId, d.turmaIds.map(String));
   }

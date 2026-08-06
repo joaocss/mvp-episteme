@@ -88,6 +88,7 @@ language sql stable as $$
           or exists (
             select 1 from materiais_turmas mt
             where mt.material_id = m.id and mt.turma_id = p_turma_id
+              and mt.escola_id = p_escola_id
           )
         )
       )
@@ -95,6 +96,7 @@ language sql stable as $$
       or exists (
         select 1 from materiais_publico mp
         where mp.material_id = m.id
+          and mp.escola_id = p_escola_id
           and (mp.tipo = 'escola' or (mp.tipo = 'papel' and mp.papel = p_papel))
       )
     )
