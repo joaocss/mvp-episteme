@@ -5,6 +5,7 @@
 // resposta final + uma reflexao — tudo fica registrado como o processo dele.
 import { useState, useRef, useEffect } from "react";
 import { Cartao } from "./ui/Cartao";
+import RespostaRica from "./RespostaRica";
 import { Botao } from "./ui/Botao";
 import { GrupoCampo, Entrada, AreaTexto } from "./ui/Campo";
 import { Selo } from "./ui/Selo";
@@ -107,7 +108,9 @@ export default function SessaoTreino({
             <div key={i} className={t.autor === "aluno" ? "flex justify-end" : "flex justify-start"}>
               <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
                 t.autor === "aluno" ? "bg-roxo text-white" : "border border-roxo/20 bg-roxo-suave/40 text-grafite"}`}>
-                <p className="whitespace-pre-wrap">{t.conteudo}</p>
+                {t.autor === "ia"
+                  ? <div className="prose-tutor"><RespostaRica texto={t.conteudo} /></div>
+                  : <p className="whitespace-pre-wrap">{t.conteudo}</p>}
               </div>
             </div>
           ))}

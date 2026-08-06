@@ -31,7 +31,7 @@ export function rotuloDisciplina(disciplina: string): string {
 // Instrucao para a IA "ilustrar" pedindo DIAGRAMAS deterministicos que o app
 // desenha (DiagramaEpisteme). O modelo nao gera imagem (erraria matematica):
 // so descreve o que ilustrar num bloco ```viz {json}```.
-const INSTRUCAO_VISUAL =
+export const INSTRUCAO_VISUAL =
   "APOIO VISUAL: quando um desenho ajudar a entender (sobretudo em matematica e " +
   "para series iniciais), inclua no meio da explicacao um DIAGRAMA, escrevendo um " +
   "bloco de codigo com a linguagem `viz` e um JSON valido (aspas duplas). Tipos:\n" +

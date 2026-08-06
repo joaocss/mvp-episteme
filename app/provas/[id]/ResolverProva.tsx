@@ -6,9 +6,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
 import { Botao } from "../../componentes/ui/Botao";
 import { Selo } from "../../componentes/ui/Selo";
+import RespostaRica from "../../componentes/RespostaRica";
 import DuvidaQuestao from "./DuvidaQuestao";
 
 type TipoQuestao = "objetiva" | "dissertativa";
@@ -235,7 +235,7 @@ export default function ResolverProva() {
           {feedback?.feedback && (
             <div className="cartao space-y-2 p-3 text-sm text-slate-700">
               {feedback.nota !== undefined && <Selo cor="roxo">Nota: {feedback.nota}/10</Selo>}
-              <div className="prose-tutor"><ReactMarkdown>{feedback.feedback}</ReactMarkdown></div>
+              <div className="prose-tutor"><RespostaRica texto={feedback.feedback ?? ""} /></div>
               <DuvidaQuestao questaoId={questao.id} />
             </div>
           )}
@@ -296,7 +296,7 @@ function ItemResultado({ questao }: { questao: QuestaoResultado }) {
           <p><span className="font-medium">Gabarito:</span> {questao.gabarito}</p>
           {carregando ? <p className="text-slate-500">Gerando feedback…</p> : feedback && (
             <>
-              <div className="prose-tutor"><ReactMarkdown>{feedback}</ReactMarkdown></div>
+              <div className="prose-tutor"><RespostaRica texto={feedback} /></div>
               <DuvidaQuestao questaoId={questao.id} />
             </>
           )}

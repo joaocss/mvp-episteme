@@ -11,7 +11,7 @@ import { criarLlm } from "../ia/fabricaLlm";
 import { RepositorioPostgres } from "./repositorioPostgres";
 import { guardrailEntrada, guardrailSaida, MENSAGEM_SEGURANCA, MENSAGEM_SEM_BASE } from "../ia/guardrails";
 import { registrarGuardrails } from "./repositorioConversas";
-import { LIMIAR_GROUNDING, responder as responderTutor, rotuloDisciplina } from "./tutor";
+import { LIMIAR_GROUNDING, responder as responderTutor, rotuloDisciplina, INSTRUCAO_VISUAL } from "./tutor";
 import { Alternativa, QuestaoParaInserir, TipoQuestao, criarProvaRascunho, inserirQuestoes, salvarFeedbackIa } from "../bd/provas";
 
 export class ErroSemBase extends Error {}
@@ -203,6 +203,8 @@ esta certa e, se o aluno errou, onde o raciocinio dele provavelmente se desviou.
 explicacao em PASSO A PASSO numerado, em markdown (negrito nos termos-chave, lista numerada). Use
 APENAS o material fornecido. Nunca use linguagem punitiva ou humilhante. Termine convidando o
 aluno a perguntar de novo, na aba do tutor, se ainda ficou com duvida.
+
+${INSTRUCAO_VISUAL}
 
 ### CONTEUDO DO MATERIAL (fonte)
 ${contexto}

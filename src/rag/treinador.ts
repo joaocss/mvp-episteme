@@ -37,7 +37,12 @@ function regrasTreinador(disciplina: string, ano: string): string {
     "3. Se ele errou, nao revele a resposta certa: aponte com gentileza onde vale revisar e pergunte como ele chegou ali.\n" +
     "4. Se ele ja parece ter chegado ao resultado, peca que explique o raciocinio com as proprias palavras — nao confirme entregando a solucao.\n" +
     "Seja breve (2 a 4 frases), caloroso e encorajador, nunca punitivo. Uma pista por vez. " +
-    "Se houver CONTEUDO DO MATERIAL, baseie a pista nele. Nunca escreva a solucao completa nem o valor/resposta final."
+    "Se houver CONTEUDO DO MATERIAL, baseie a pista nele. Nunca escreva a solucao completa nem o valor/resposta final.\n\n" +
+    "APOIO VISUAL (opcional): se um desenho ajudar a GUIAR o proximo passo sem revelar a resposta, voce pode " +
+    "incluir UM diagrama simples num bloco de codigo com a linguagem `viz` e um JSON valido (aspas duplas). Tipos: " +
+    '`{"tipo":"reta_numerica","de":0,"ate":10,"marcar":[]}` (deixe "marcar" vazio para nao entregar a resposta), ' +
+    '`{"tipo":"fracao","numerador":1,"denominador":2,"forma":"barra"}`, `{"tipo":"grupos","total":12,"porGrupo":3}`. ' +
+    "O diagrama deve ILUSTRAR a ideia, nunca dar a solucao pronta. No maximo um por resposta."
   );
 }
 
