@@ -233,6 +233,17 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   `app/api/treino-sessao` (aluno: orientar/concluir). Middleware protege
   `/treinos` e `/api/treino-sessao`.
 
+- **Fase 12 — Prova impressa (PDF), só professor:** rota
+  `/professor/provas/[id]/imprimir` — folha standalone (sem o shell) otimizada
+  para impressão/PDF, com alternador **Prova (aluno) / Com gabarito** por
+  querystring (`?gabarito=1`) e botão que aciona `window.print()` (Salvar como
+  PDF do navegador). Sem dependência nova (evita `@react-pdf/renderer`, pesado no
+  serverless). Só o professor dono acessa (`obterProvaComQuestoes` filtra por
+  `professor_id`). Header com logo/nome da escola, campos nome/data/nota,
+  objetivas com bolha da alternativa (destaca a correta no modo gabarito),
+  dissertativas com pauta para resposta. Botão "Imprimir prova" em
+  `/professor/provas/[id]`. Componente `BarraImpressao.tsx` (some na impressão).
+
 ## Roadmap (ordem do brief)
 
 - **B — Gestão de alunos:** reenturmar aluno (UI; `definirTurmaAluno` já existe),

@@ -25,11 +25,16 @@ export default async function PaginaProva({ params }: { params: Promise<{ id: st
           titulo={prova.titulo}
           subtitulo={`${prova.turma} — ${prova.assunto}`}
           acoes={
-            prova.status !== "rascunho" ? (
-              <Link href={`/professor/provas/${id}/corrigir`} className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
-                Corrigir respostas
+            <>
+              <Link href={`/professor/provas/${id}/imprimir`} className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
+                Imprimir prova
               </Link>
-            ) : undefined
+              {prova.status !== "rascunho" && (
+                <Link href={`/professor/provas/${id}/corrigir`} className={variantesBotao({ variante: "secundario", tamanho: "pequeno" })}>
+                  Corrigir respostas
+                </Link>
+              )}
+            </>
           }
         />
       </div>
