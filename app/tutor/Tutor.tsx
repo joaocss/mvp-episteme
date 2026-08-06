@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
 import { Icone } from "../componentes/ui/Icone";
+import RespostaRica from "../componentes/RespostaRica";
 
 interface Mensagem {
   autor: "aluno" | "tutor";
@@ -199,7 +199,7 @@ export default function Tutor() {
               m.autor === "aluno" ? "bg-roxo text-white" : "border border-borda bg-tela text-grafite"}`}>
               {m.autor === "tutor" ? (
                 <div className="prose-tutor">
-                  <ReactMarkdown>{m.texto}</ReactMarkdown>
+                  <RespostaRica texto={m.texto} />
                 </div>
               ) : (
                 <>
