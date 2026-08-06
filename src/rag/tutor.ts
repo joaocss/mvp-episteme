@@ -19,13 +19,23 @@ const TOP_K = 3;
 // Fase 7 (multi-serie/multi-disciplina): rotulos amigaveis para o prompt e
 // para a UI. "disciplina" e sempre o slug sem acento gravado no banco
 // (materiais_fonte.disciplina, provas.disciplina, sessoes_tutor.disciplina).
+// Rotulos "bonitos" conhecidos; qualquer outra disciplina (ex.: de curso tecnico
+// ou superior) cai no fallback que capitaliza o slug — nada fica preso a
+// matematica/6o ano. O nome amigavel real vem do catalogo `disciplinas` por
+// escola; este mapa e so um verniz para os slugs historicos.
 export const ROTULO_DISCIPLINA: Record<string, string> = {
   matematica: "Matemática",
   portugues: "Língua Portuguesa",
   historia: "História",
+  geral: "Conteúdo geral",
 };
 export function rotuloDisciplina(disciplina: string): string {
-  return ROTULO_DISCIPLINA[disciplina] ?? disciplina;
+  if (ROTULO_DISCIPLINA[disciplina]) return ROTULO_DISCIPLINA[disciplina];
+  // Fallback generico: "tecnico_administrativo" -> "Tecnico Administrativo".
+  return (disciplina || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim() || disciplina;
 }
 
 // Instrucao para a IA "ilustrar" pedindo DIAGRAMAS deterministicos que o app

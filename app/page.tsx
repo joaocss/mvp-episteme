@@ -47,6 +47,11 @@ export default function Inicio() {
             inteligente. Em vez de entregar a resposta pronta, conduz o raciocinio — e da ao professor
             e ao gestor uma visao completa do aprendizado.
           </p>
+          <p className="mt-3 max-w-2xl text-base text-slate-500">
+            Funciona com <strong>qualquer serie, curso ou disciplina</strong> — do ensino fundamental
+            ao superior, passando pelo ensino medio e cursos tecnicos. O tutor se ancora sempre no
+            material que a propria instituicao carrega.
+          </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/paineis" className="btn-primario">
               Acessar a plataforma
