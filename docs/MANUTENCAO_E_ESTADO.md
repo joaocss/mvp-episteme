@@ -1,430 +1,339 @@
-# Episteme — Mapeamento Completo do Projeto
+# Episteme — Mapeamento Completo do Projeto (manutenção e arquitetura)
 
-*Documento vivo. Última atualização: 30/07/2026 (Fase 7).*
+*Documento vivo. Última atualização: 06/08/2026 (branch `feat/modularizacao`, Fases 9–18).*
 
-Este documento existe para uma pessoa nova (humana ou IA) conseguir entender o projeto
-inteiro sem precisar ler todo o código: o que é, por que cada peça foi escolhida, onde
-cada coisa está, o estado real do banco, e o que falta fazer.
+Objetivo deste documento: um dev com conhecimento razoável de web (TypeScript/React/SQL)
+deve conseguir, só lendo isto, entender **o que é**, **quais tecnologias e ferramentas**,
+**por que cada escolha**, **onde está cada coisa** e **como tudo se conecta** — sem ler
+todo o código. Para o dia a dia com o Claude Code, ver também `CLAUDE.md` (mesma pasta raiz do repo).
 
 ---
 
 ## 1. O que é o Episteme
 
-SaaS educacional **multi-tenant** (uma aplicação atende várias escolas, dados isolados
-por `escola_id`). O núcleo é um **tutor de IA** que responde dúvidas do aluno ancorado
-no material didático da própria escola e na BNCC — filosofia central: a IA é uma
-**parceira cognitiva**, não uma muleta. Ela conduz o raciocínio passo a passo em vez de
-entregar a resposta pronta, para combater a "descarga cognitiva" (o aluno para de pensar
-porque a IA pensa por ele).
+SaaS educacional **multi-tenant** (uma aplicação, várias escolas, dados isolados por
+`escola_id`). O coração é um **tutor de IA** que responde ancorado no material didático da
+própria escola (RAG — *Retrieval-Augmented Generation*). Filosofia central: a IA é um
+**ANDAIME cognitivo**, não uma muleta — dá pistas, exemplos e analogias e conduz o raciocínio
+passo a passo, em vez de entregar a resposta pronta (combate à "descarga cognitiva").
 
-Hoje o sistema cobre, para as turmas cadastradas: tutor de IA (Matemática 6º ano,
-Português 6º ano, História 7º ano), provas com correção assistida por IA e manual,
-notas e faltas, planejamento de aula, e três painéis (aluno, professor, gestor).
+Papéis: **aluno**, **professor**, **gestor** (diretor/coordenação), **admin**, **responsável**.
 
-### Papéis
+Repositório: `github.com/joaocss/mvp-episteme` — a **raiz do Git é a pasta `codigo/`**.
+Deploy: Vercel (deploy automático a cada `git push` na branch `main`). Banco: Supabase Cloud
+(projeto `gkycodihvnnrfldibywy`, região `us-east-1`).
 
-| Papel | O que vê e faz |
-|---|---|
-| **Aluno** | Tutor de IA (por disciplina), provas, histórico, feedback |
-| **Professor** | Turmas que leciona: conversas dos alunos, alertas, provas (elaborar/corrigir), notas/faltas, planejamento de aula |
-| **Gestor** | Toda a escola: dashboard, cadastro (turmas/professores/alunos/vínculos), desempenho, logs/auditoria, configurações da escola |
-| **Responsável** | Planejado, ainda não implementado (aparece como "em breve" na tela de escolha de perfil) |
+**App em produção:** https://mvp-episteme-nu8r.vercel.app
 
 ---
 
-## 2. Onde tudo está (URLs e acessos)
+## 2. Stack tecnológica — o quê e POR QUÊ
 
-| O quê | Onde |
-|---|---|
-| **App em produção** (para outras pessoas testarem, sem precisar rodar nada local) | **https://mvp-episteme-nu8r.vercel.app** |
-| Repositório (código-fonte) | `github.com/joaocss/mvp-episteme` — a raiz do repo Git é a pasta `codigo/` deste projeto |
-| Hospedagem do app | Vercel (deploy automático a cada `git push` na branch `main`) |
-| Banco de dados | Supabase Cloud, projeto `gkycodihvnnrfldibywy`, região `us-east-1` |
-| Painel do Supabase (tabelas, SQL editor, logs) | `supabase.com/dashboard/project/gkycodihvnnrfldibywy` |
-| Painel da Vercel (variáveis de ambiente, deploys, logs) | `vercel.com` → projeto do time do João |
-
-### Login de teste (produção e local, senha `episteme123` para todos)
-
-| Papel | Email |
-|---|---|
-| Gestor | `gestor@episteme.teste` |
-| Professor | `professor@episteme.teste` |
-| Aluno (6º ano — Matemática/Português) | `joaosena.cosme@gmail.com` |
-| Aluno (7º ano — História) | `pedro7ano@episteme.teste` |
-
-A tela inicial de acesso é `/paineis` — escolha do perfil **antes** de logar; depois de
-autenticado, o usuário cai direto no próprio painel (não vê os outros módulos).
-
----
-
-## 3. Stack tecnológica — e por que cada escolha
-
-| Camada | Tecnologia | Por quê |
+| Camada | Tecnologia | Por que esta escolha |
 |---|---|---|
-| Linguagem | TypeScript | Tipagem estática pega erros de integração (nome de coluna errado, contrato de API quebrado) em tempo de build, essencial num projeto com muitas camadas (BD → RAG → API → UI) mantido por IA e humano junto. |
-| Frontend + backend | **Next.js 15 (App Router)** + React 19 | Um único framework serve páginas *e* rotas de API (`app/api/*`), sem precisar de um backend separado. App Router com Server Components deixa a maioria das páginas buscarem dados direto no banco no servidor (sem uma camada REST intermediária redundante). Deploy nativo e gratuito (tier Hobby) na Vercel, que é a mesma empresa por trás do Next.js — fricção mínima. |
-| Estilo | Tailwind CSS 3 + tokens de marca (`tailwind.config.ts`) | Consistência visual rápida sem escrever CSS solto; os tokens (roxo `#3B2C63`, dourado, creme) centralizam a identidade do Episteme num só lugar. |
-| Banco de dados | **PostgreSQL** (via Supabase) | Relacional de verdade — o domínio (escola → turma → aluno → prova → questão → resposta) é fortemente relacional, com muitas chaves estrangeiras. JSONB cobre os campos flexíveis (planos de aula, alternativas de questão) sem precisar de um banco de documentos à parte. |
-| Extensão vetorial | **pgvector** | Permite guardar os embeddings do material didático *na mesma* tabela relacional e fazer a busca por similaridade com SQL comum (`buscar_trechos`), em vez de manter um banco vetorial separado (Pinecone, Weaviate) — menos peças móveis, e o RLS do Postgres protege os vetores como protege qualquer outra linha. |
-| Provedor do banco | **Supabase** | Postgres gerenciado + pgvector pronto de fábrica + Auth/Storage disponíveis se forem precisos depois, tudo num free tier generoso o suficiente pra um piloto. |
-| Acesso ao banco pelo app | **node-postgres (`pg`)**, pool direto (`src/bd/pool.ts`) | O app conecta direto via SQL (não via REST do PostgREST) porque a maior parte das consultas é relacional/complexa (joins, agregações para dashboards) — SQL puro é mais direto que montar isso em cima de uma API REST genérica. |
-| Row Level Security | RLS do Postgres (`escola_atual()`, `papel_atual()`) | Isolamento entre escolas garantido **no banco**, não só na aplicação — mesmo que um bug na aplicação esqueça um filtro, o banco não devolve dado de outra escola. (Nota: hoje as escritas do app usam o pool privilegiado, que baixa por trás do RLS — ver seção 9, item de segurança.) |
-| IA — geração de texto | **OpenAI `gpt-4o-mini`** | Modelo barato e rápido o suficiente para um tutor conversacional em produção; suporta **visão** (`image_url`), usado no upload de foto do aluno. |
-| IA — embeddings | **OpenAI `text-embedding-3-small`**, pedindo `dimensions: 768` | Mesmo provedor da geração simplifica a conta/chave; 768 dimensões (em vez do padrão 1536) reduz custo de armazenamento e velocidade de busca sem perda perceptível de qualidade para textos didáticos. |
-| Abstração de IA | Fábrica de provedores (`src/ia/fabricaLlm.ts`, `fabricaEmbeddings.ts`) | Troca de provedor (Gemini, Ollama local, mock para testes) só mudando uma variável de ambiente — o pipeline do tutor (`src/rag/tutor.ts`) não sabe nem se importa qual provedor está por trás. Gemini foi o provedor original do projeto (início), hoje só fica disponível como opção, não em uso. |
-| Autenticação | Cookie assinado HMAC (`lib/sessao.ts`) + senha com **pbkdf2** (`lib/senha.ts`) | Solução deliberadamente simples para o piloto — sem depender do Supabase Auth (que exigiria mais integração) enquanto o número de usuários é pequeno e controlado. **Ponto de atenção**: precisa endurecer antes de dados reais (ver seção 9). |
-| Renderização de markdown | `react-markdown` | As respostas da IA agora pedem formatação passo a passo (negrito, listas numeradas); sem isso o aluno veria `**texto**` literal em vez de negrito. |
-| Gráficos | `recharts` | Dashboards do gestor (perguntas por dia, notas por turma, evasão). |
-| Scripts administrativos | `tsx` (roda TypeScript direto, sem build) | Ingestão de livros, criação de escola, etc. rodam como scripts de linha de comando sem precisar compilar. |
+| Linguagem | **TypeScript 5** | Tipagem estática pega erros de contrato (nome de coluna, shape de API) em build — essencial num projeto com muitas camadas (BD→RAG→API→UI) mantido por humano + IA. |
+| Framework (front + back) | **Next.js 15 (App Router)** + **React 19** | Um framework serve páginas *e* rotas de API (`app/api/*`), sem backend separado. Server Components buscam dados direto no banco (sem REST intermediário). Deploy nativo/gratuito na Vercel (mesma empresa do Next). |
+| Estilo | **TailwindCSS 3** + tokens da marca | Consistência visual rápida; os tokens (roxo `#3B2C63`, dourado, creme) centralizam a identidade num só lugar (`tailwind.config.ts`). |
+| Componentes UI | **class-variance-authority** + **clsx** + **tailwind-merge** | Padrão "shadcn-style": variantes tipadas de componentes (Botão, Selo) sem lib de UI pesada. `cn()` (em `lib/utils.ts`) mescla classes. |
+| Banco | **PostgreSQL 17** (via Supabase) | Domínio fortemente relacional (escola→turma→aluno→prova→questão→resposta). JSONB cobre campos flexíveis (alternativas, planos) sem banco de documentos à parte. |
+| Vetores (RAG) | **pgvector** (dimensão **768**) | Guarda os embeddings na *mesma* tabela relacional e busca por similaridade com SQL (`buscar_trechos`) — menos peças móveis que Pinecone/Weaviate, e o RLS protege os vetores como qualquer linha. |
+| Acesso ao banco | **node-postgres (`pg`)**, pool direto (`src/bd/pool.ts`) | A maioria das consultas é relacional/complexa (joins, agregações p/ dashboards) — SQL puro é mais direto que montar em cima do PostREST. |
+| SDK Supabase | **@supabase/supabase-js** + **@supabase/ssr** | Usado no caminho de ingestão em nuvem (chave `service_role`) quando a `DATABASE_URL` do pooler está bloqueada como *sensitive* na Vercel. |
+| IA — texto | **OpenAI `gpt-4o-mini`** | Barato e rápido p/ tutor conversacional em produção; suporta **visão** (`image_url`), usado no upload de foto do aluno. |
+| IA — embeddings | **OpenAI `text-embedding-3-small`** (`dimensions: 768`) | Mesmo provedor da geração simplifica conta/chave; 768d (em vez de 1536) reduz custo/tempo de busca sem perda perceptível p/ texto didático. |
+| Abstração de IA | Fábrica de provedores (`src/ia/fabrica*.ts`) | Trocar provedor (OpenAI/Gemini/Ollama/mock) só mudando env — o pipeline não sabe qual está por trás. `USAR_MOCK=1` p/ testes sem API. |
+| Autenticação | Cookie assinado **HMAC** (`lib/sessao.ts`) + senha **pbkdf2** (`lib/senha.ts`) | Solução simples de piloto, sem depender do Supabase Auth. **A endurecer antes de dados reais** (ver §9). |
+| Markdown | **react-markdown** | Respostas da IA vêm em markdown (passo a passo, negrito); sem isso o aluno veria `**texto**` cru. |
+| Diagramas | **SVG determinístico** próprio (`DiagramaEpisteme.tsx`) | A IA descreve o que ilustrar (`viz` JSON) e o app desenha — **não** usa geração de imagem por IA (que erra matemática). Sempre correto, instantâneo, sem custo. |
+| Gráficos | **recharts** | Dashboards do gestor/professor (notas, evasão, distribuição). |
+| Extração de PDF | **unpdf** (pdf.js empacotado) | Extrai texto de PDF em ambiente serverless/Node do Next (upload in-app de material). |
+| Notificações | **web-push** (Web Push / VAPID) | Notificações push na PWA (novo treino etc.) sem serviço externo pago. |
+| Ícones | **lucide-react** (dep) + `Icone.tsx` próprio (SVG inline) | A nav/telas usam um conjunto SVG próprio (`app/componentes/ui/Icone.tsx`) p/ zero dependência de render; `lucide-react` fica disponível. |
+| Scripts admin | **tsx** | Roda TypeScript direto (ingestão, seeds) sem build. |
 
 ---
 
-## 4. Arquitetura — como uma pergunta do aluno vira resposta
+## 3. Ferramentas de desenvolvimento e infraestrutura
 
-```
-Aluno digita a pergunta (+ opcionalmente uma foto)
-        │
-        ▼
-POST /api/tutor  (app/api/tutor/route.ts)
-        │  lê o cookie de sessão → escola_id, aluno_id
-        │  descobre a série do aluno (turma) e a disciplina da sessão
-        ▼
-guardrailEntrada()          — bloqueia PII, prompt injection, risco à segurança infantil
-        ▼
-embeddings.gerar(pergunta)  — OpenAI text-embedding-3-small (768d)
-        ▼
-Busca em CAMADAS (só no chat livre; gerar questão de treino é sempre livro-only):
-  1. LIVRO da escola, filtrado por disciplina + série  (buscar_trechos)
-  2. Se não achou:  habilidade da BNCC mais próxima, mesmo filtro (buscar_bncc_similar)
-  3. Se não achou:  foto enviada pelo aluno (visão do gpt-4o-mini), se houver
-  4. Se não achou nada:  conhecimento geral do modelo — SEMPRE avisando a origem
-        ▼
-Monta o prompt (regras + fonte + conversa anterior dentro do TTL de 7 dias + pergunta)
-        ▼
-llm.gerar()  — gpt-4o-mini, passo a passo em markdown
-        ▼
-guardrailSaida()  — revisa a resposta antes de devolver
-        ▼
-Persiste tudo: sessoes_tutor, interacoes (+ imagem anexada), interacao_fontes,
-               guardrail_eventos, auditoria — todos com trace_id em comum
-        ▼
-Resposta ao aluno, com selo da origem (📘 BNCC / 🌐 conhecimento geral / 📷 imagem)
-```
-
-**Multi-tenant:** toda tabela de negócio tem `escola_id`; toda consulta filtra por ele.
-RLS no banco reforça isso na leitura; as escritas do app usam um pool com privilégio
-mas o código sempre inclui `where escola_id = $1` (ver `src/bd/*.ts`).
-
-**Multi-série/multi-disciplina (Fase 7):** antes o sistema assumia sempre "Matemática do
-6º ano". Hoje `materiais_fonte` e `competencias_bncc` têm `disciplina` + `ano`, e a busca
-filtra por eles. O aluno da 7ª série só enxerga o que é da 7ª série; se a escola tiver
-mais de uma disciplina disponível para a série dele, um seletor aparece no chat.
+| Ferramenta | Para quê | Observação |
+|---|---|---|
+| **Supabase CLI** | Migrations (`supabase migration up` local / `supabase db push` cloud) e sobe o Supabase **local** (Docker). | Fonte de verdade do schema = `supabase/migrations/*.sql` (29 arquivos, em ordem cronológica). |
+| **Docker Desktop** | Roda o Supabase local (Postgres+pgvector+Studio+Auth+Storage) em containers `supabase_*_codigo`. | No Windows do João, precisa ser **aberto manualmente** na 1ª vez; o daemon não sobe só via CLI. |
+| **Vercel** | Hospedagem + deploy automático a cada push na `main`. Variáveis de ambiente de produção ficam aqui. | A `DATABASE_URL` de prod é marcada **sensitive** (write-only). |
+| **GitHub** | `joaocss/mvp-episteme`. A Vercel builda a partir do GitHub, não da máquina local — **sempre `git push` antes de esperar deploy**. | — |
+| **web-push CLI** | Gerar par de chaves VAPID: `npx web-push generate-vapid-keys`. | A privada **nunca** é commitada; fica em `.env.local` (dev) / Vercel (prod). |
+| **tsc** (`npm run typecheck`) | Checagem de tipos sem build. Rodar sempre antes de considerar pronto. | — |
 
 ---
 
-## 5. Mapa de pastas — onde encontrar cada coisa
+## 4. Mapa de pastas — onde está cada coisa
 
 ```
-codigo/                        # raiz do repositório Git
-├── app/                        # Next.js App Router
-│   ├── page.tsx                 # landing pública
-│   ├── paineis/                 # escolha de perfil (pública, pré-login)
-│   ├── login/                   # login único (aceita ?papel= para contexto visual)
-│   ├── auth/sair/                # logout
-│   ├── tutor/                   # chat do aluno (texto + foto + seletor de disciplina)
-│   ├── provas/[id]/             # aluno respondendo prova, questão por questão
+codigo/                          # raiz do repositório Git
+├── app/                          # Next.js App Router (páginas + rotas de API)
+│   ├── layout.tsx                 # layout raiz (metadata, PWA manifest/theme, RegistrarPWA)
+│   ├── page.tsx                   # landing pública
+│   ├── paineis/                   # escolha de perfil (pública, pré-login)
+│   ├── login/ · auth/sair/        # login (cookie) e logout
+│   ├── privacidade/               # termo de privacidade público (LGPD)
+│   ├── tutor/                     # chat do aluno (texto + foto + seletor de disciplina)
+│   ├── treinos/                   # aluno: lista + sessão de coaching (Modo Treinador)
+│   ├── provas/[id]/               # aluno responde prova, questão por questão (+ anti-cópia)
+│   ├── responsavel/               # painel do responsável (read-only) + consentimento LGPD
 │   ├── professor/
-│   │   ├── page.tsx               # painel: KPIs, sessões, alertas, competências
-│   │   ├── desempenho/            # lançar notas/faltas, ver acertos por prova
-│   │   ├── planos/                # planejamento de aula com IA
-│   │   ├── provas/                # listar, elaborar (IA), corrigir manualmente
-│   │   └── sessao/[id]/           # ver a conversa de um aluno específico
+│   │   ├── page.tsx                 # painel: KPIs, sessões, alertas, competências
+│   │   ├── assistente/              # IA da equipe (RAG por audiência professor/escola)
+│   │   ├── treinos/                 # criar treino + ver processo dos alunos
+│   │   ├── provas/                  # elaborar (IA), corrigir, imprimir prova (PDF)
+│   │   ├── planos/                  # planejamento de aula com IA
+│   │   ├── desempenho/ · materiais/ · sessao/[id]/
 │   ├── gestor/
-│   │   ├── page.tsx               # dashboard macro (KPIs + gráficos)
-│   │   ├── gestao/                # CRUD turmas/professores/alunos/vínculos/família
-│   │   ├── desempenho/            # notas/acertos de toda a escola
-│   │   ├── logs/                  # auditoria + alertas de guardrail
-│   │   └── configuracoes/         # nome, logo, escala de nota da escola
-│   ├── dashboard/{aluno,professor,gestor}/  # redirecionam pro destino real (RBAC)
-│   ├── componentes/               # Marca (logo), ui/ (Botao, Cartao — shadcn-style)
-│   └── api/                       # rotas de API (login, cadastro, tutor/*, provas,
-│                                   #   professor/*, gestor/*)
+│   │   ├── page.tsx · GraficosGestor.tsx  # dashboard macro (Recharts)
+│   │   ├── gestao/                  # CRUD turmas/professores/alunos/vínculos/família
+│   │   ├── materiais/ · reenturmar/ · alunos/ · desempenho/
+│   │   ├── relatorios/              # relatórios c/ filtros (turma/disciplina/período/competência)
+│   │   ├── logs/ · configuracoes/ · modulos/  # auditoria; config da escola; liga/desliga módulos
+│   ├── dashboard/{aluno,professor,gestor}/    # redirecionam pro destino real (RBAC)
+│   ├── componentes/               # componentes React (ver §4.1)
+│   └── api/                        # rotas de API (ver §4.2)
 ├── src/
-│   ├── ia/                      # fábricas de provedor (OpenAI/Gemini/Ollama/mock),
-│   │                             #   guardrails, tipos das interfaces de IA
-│   ├── rag/                     # pipeline do tutor (tutor.ts), provas (provas.ts),
-│   │                             #   planejamento, ingestão de livro/BNCC, chunker,
-│   │                             #   repositórios de busca vetorial (Postgres/Supabase/memória)
-│   └── bd/                      # acesso ao Postgres por domínio: pool.ts (conexão),
-│                                 #   aluno.ts, professor.ts, gestor.ts, gestao.ts,
-│                                 #   provas.ts, notas.ts, configEscola.ts, alunos.ts
-├── lib/                         # sessao.ts (cookie HMAC), senha.ts (pbkdf2), utils.ts
-├── supabase/
-│   ├── migrations/               # TODAS as mudanças de schema, em ordem — fonte da verdade
-│   └── seed.sql                  # dados de demonstração (só usado localmente)
-├── docs/                        # este arquivo, Identidade_Visual.md, Conformidade_Legal.md
-├── local/                       # scripts internos (fora do Git): criar_escola.ts, testes manuais
-└── public/                      # logo-episteme.svg, icone-episteme.svg
+│   ├── bd/                        # acesso ao Postgres por domínio (ver §4.3)
+│   ├── ia/                        # fábricas de provedor, provedores, guardrails, tipos
+│   ├── modulos/registro.ts        # CATÁLOGO DE MÓDULOS — fonte de verdade da navegação
+│   ├── notificacoes/push.ts       # envio de Web Push (VAPID)
+│   └── rag/                       # pipelines de IA (tutor, treinador, assistente, provas,
+│                                   #   planejamento) + ingestão + repositórios de busca
+├── lib/                          # sessao (cookie HMAC), senha (pbkdf2), sessaoServidor (RBAC), utils (cn)
+├── supabase/migrations/          # 29 migrations — FONTE DE VERDADE do schema
+├── public/                       # manifest.webmanifest, sw.js, ícones SVG
+├── docs/                         # este arquivo, Identidade_Visual, Conformidade_Legal
+└── local/                        # scripts internos (fora do Git): seeds, testes manuais
 ```
 
+### 4.1. `app/componentes/` — biblioteca de UI
+
+- **`ui/`** (primitivos "shadcn-style", todos temados pela marca): `Botao`, `Cartao`, `Campo`
+  (Entrada/AreaTexto/Selecao/GrupoCampo), `Selo` (badge), `Kpi`, `CabecalhoPagina`,
+  `EstadoVazio`, `Icone` (SVG inline, sem dependência).
+- **Shell autenticado:** `LayoutApp` (server — monta a nav a partir do registro de módulos +
+  módulos habilitados na escola) → `CascaApp` (client — sidebar por papel, topo, logout).
+- **Features:** `GestaoMateriais` (upload PDF + audiência), `GestaoTreinos`, `SessaoTreino`
+  (coaching do aluno), `AssistenteChat`, `PainelModulos` (toggle de módulos), `BannerConsentimento`
+  (LGPD), `BarraImpressao` (folha de prova), `DiagramaEpisteme` + `RespostaRica` (multimodal),
+  `RegistrarPWA` + `AtivarNotificacoes` (PWA/push), `Marca`.
+
+### 4.2. `app/api/` — rotas de API (por área)
+
+- **Auth:** `login`, `cadastro`, `auth/sair`.
+- **Tutor (aluno):** `tutor` (pergunta→resposta), `tutor/historico`, `tutor/conversa`, `tutor/disciplinas`.
+- **Treinador:** `treinos` (CRUD do professor), `treino-sessao` (aluno: orientar/concluir).
+- **Provas:** `provas` (aluno responde/feedback/gabarito), `professor/provas`, `professor/correcao`.
+- **Assistente da equipe:** `professor/assistente`.
+- **Gestor:** `gestor/gestao`, `gestor/disciplinas`, `gestor/configuracoes`, `gestor/relatorios`,
+  `gestor/modulos`, `gestor/alunos/{import,export}`.
+- **Professor:** `professor/notas`, `professor/plano-ensino`, `professor/export`.
+- **Materiais/RAG:** `materiais` (upload incremental + audiência).
+- **LGPD/PWA:** `responsavel/consentimento`, `push/inscrever`.
+
+### 4.3. `src/bd/` — acesso ao banco por domínio
+
+`pool.ts` (conexão), `ambiente.ts` (carrega .env em scripts), `cliente.ts` (Supabase JS),
+`usuarios.ts`, `aluno.ts`/`alunos.ts`, `professor.ts`, `gestor.ts`, `gestao.ts`, `disciplinas.ts`,
+`provas.ts`, `notas.ts`, `configEscola.ts`, `importacao.ts`, `materiais.ts`, `materiaisVersoes.ts`
+(versionamento), `modulos.ts`, `relatorios.ts`, `responsavel.ts`, `treinos.ts`, `push.ts`,
+`consentimento.ts`. **Regra de ouro:** toda escrita passa pelo pool privilegiado, então
+**SEMPRE filtrar por `escola_id`** no `WHERE` (é a proteção real entre escolas — ver §9).
+
+### 4.4. `src/rag/` e `src/ia/` — a camada de IA
+
+- **`ia/`**: `tipos.ts` (interfaces `ProvedorLlm`/`ProvedorEmbeddings`/`RepositorioTrechos`/`FiltroConteudo`),
+  `fabricaLlm.ts`/`fabricaEmbeddings.ts` (escolhem provedor por env), provedores
+  `provedorOpenAI/Gemini/Ollama/Mock`, `guardrails.ts` (PII, injeção, segurança infantil,
+  toxicidade), `texto.ts` (normalização).
+- **`rag/`**: `tutor.ts` (pipeline do aluno, busca em camadas + multimodal), `treinador.ts`
+  (coach anti-muleta), `assistenteProfessor.ts` (IA da equipe por audiência), `provas.ts`
+  (gerar/corrigir prova), `planejamento.ts` (planos de aula). Repositórios de busca:
+  `repositorioPostgres.ts` (produção), `repositorioSupabase.ts` (ingestão cloud),
+  `repositorioMemoria.ts` (testes), `repositorioConversas.ts` (persistência + auditoria).
+  Ingestão: `ingestaoIncremental/` (`hashes.ts` + `pipeline.ts` — versionamento/dedup),
+  `extrairPdf.ts`, `chunkerTexto.ts`, `ingestaoLivro.ts`/`ingestaoPdf.ts`/`ingestaoBncc.ts`.
+
 ---
 
-## 6. Banco de dados — schema real (24 tabelas)
+## 5. Arquitetura — como as requisições fluem
 
-Convenção: identificadores em português sem acento, `snake_case`; toda tabela de negócio
-tem `escola_id` (isolamento multi-tenant) e `criado_em`. Contagens abaixo são do banco
-**local** de desenvolvimento (o schema é idêntico ao de produção; os *dados* de produção
-são diferentes — produção só tem o material de Matemática ingerido até a Fase 7 concluir
-a ingestão em nuvem, ver seção 10).
+### 5.1. Pergunta do aluno ao tutor (RAG em camadas + multimodal)
 
-### 6.1 Núcleo multi-tenant
+```
+Aluno digita (+ opcional foto)  →  POST /api/tutor
+  lê cookie de sessão → escola_id, aluno_id; descobre turma/série/disciplina
+  guardrailEntrada()  — bloqueia PII, injeção, risco à segurança infantil
+  embeddings.gerar(pergunta)  — OpenAI text-embedding-3-small (768d)
+  buscar_trechos(escola, vetor, limite, disciplina, ano, turma, papel='aluno', incluir_conteudo=true)
+    Busca em CAMADAS (só no chat livre):
+      1. LIVRO da escola (turma/disciplina/série)  + docs de AUDIÊNCIA (aluno/escola)
+      2. se não achou: habilidade BNCC mais próxima
+      3. se não achou: foto enviada (visão do gpt-4o-mini), se houver
+      4. senão: conhecimento geral do modelo — SEMPRE avisando a origem
+  monta prompt (regras de ANDAIME + fonte + conversa dentro do TTL 7 dias + pergunta + INSTRUCAO_VISUAL)
+  llm.gerar()  — gpt-4o-mini, passo a passo em markdown, pode emitir bloco ```viz {json}```
+  guardrailSaida()  — revisa antes de devolver
+  persiste tudo (sessoes_tutor, interacoes + imagem, interacao_fontes, guardrail_eventos, auditoria)
+Resposta → RespostaRica renderiza markdown + desenha os diagramas viz em SVG
+```
+`modo_estrito` por turma: se ligado e não achar no material da turma, o tutor recusa
+(bloqueia o fallback BNCC/geral).
 
-| Tabela | Linhas (local) | Campos principais | Para quê |
-|---|---|---|---|
-| `escolas` | 1 | `nome`, `cnpj`, `status` | Raiz do tenant. Uma linha por escola cliente. |
-| `usuarios` | 10 | `escola_id`, `papel` (enum), `nome`, `email`, `senha_hash`, `data_nascimento`, `disciplinas`, `atipicidades`/`adaptacoes` (jsonb), `endereco_familia`, `estado_civil_pais`, `pais_moram_juntos` | Toda pessoa do sistema (aluno/professor/gestor/admin), com campos extras de aluno direto na mesma tabela (convenção do projeto). |
-| `turmas` | 5 | `nome`, `serie`, `ano_letivo` | Ex.: "6º A" / série "6o ano". |
-| `matriculas` | 5 | `aluno_id`, `turma_id` | Vínculo aluno↔turma. |
-| `professores_turmas` | 5 | `professor_id`, `turma_id`, `disciplina` | Vínculo professor↔turma↔**disciplina** (um professor pode lecionar mais de uma disciplina/turma). |
-| `responsaveis` | 0 | `aluno_id`, `nome`, `parentesco`, `telefone`, `email` | 1:N — vários responsáveis por aluno. |
+### 5.2. Assistente da equipe (RAG por audiência)
 
-Enum `papel_usuario`: `admin`, `professor`, `aluno`, `responsavel`, `gestor`.
+`POST /api/professor/assistente` → `responderAssistente()` chama `buscar_trechos` com
+`incluir_conteudo=false` e `papel` = professor|gestor. Assim NÃO usa a base de conteúdo escolar
+(disciplina/série) — só documentos cuja **audiência** inclui o papel de quem pergunta ou 'escola'.
+Ex.: diretor sobe "regimento" com audiência **escola** → todos veem; sobe orientação com audiência
+**professor** → só a IA dos professores retorna aquilo.
 
-### 6.2 Personalização por escola
+### 5.3. Ingestão incremental de material (porte do `rag-ingestao-incremental`)
 
-| Tabela | Linhas | Campos | Para quê |
-|---|---|---|---|
-| `configuracoes_escola` | 1 | `escola_id` (PK), `logo_url`, `nota_maxima`, `nota_minima_aprovacao` | Uma linha por escola — já pronta para várias escolas, só falta ter mais de uma em uso. |
+`POST /api/materiais` (upload de PDF por professor/diretor) → `ingerirPdfIncremental()`:
+`hash do arquivo` (idempotência → `duplicada`), cria **versão**, extrai (unpdf) → chunk →
+`hash por chunk` (reaproveita embeddings iguais entre versões, ~86% de reuso), publica de
+forma **atômica** (nova versão `vigente`, anterior `substituida`), com deleção lógica e janelas
+de vigência. A audiência (turma via `materiais_turmas`; papel/escola via `materiais_publico`) é
+escolhida no upload (papel/escola só pelo gestor).
 
-### 6.3 Conteúdo e RAG
+---
 
-| Tabela | Linhas | Campos | Para quê |
-|---|---|---|---|
-| `materiais_fonte` | 3 | `disciplina`, `ano`, `titulo`, `tipo`, `status_ingestao` | Um registro por livro/apostila ingerida. Hoje: Matemática 6º, Português 6º, História 7º. |
-| `material_chunks` | 2975 | `material_id`, `ordem`, `texto`, `metadados` (jsonb), `embedding vector(768)` | Pedaços do livro (~900 caracteres, com sobreposição) já vetorizados. Índice `ivfflat` para busca por similaridade. |
-| `competencias_bncc` | 34 | `codigo` (ex. EF06MA07), `disciplina`, `ano`, `unidade_tematica`, `descricao`, `embedding vector(768)` | Catálogo de habilidades da BNCC, usado como 2ª camada de grounding. |
+## 6. Módulos e funcionalidades
 
-Funções SQL de busca (vivem nas migrations, não em tabelas): `buscar_trechos(escola, vetor,
-limite, disciplina?, ano?)`, `buscar_bncc(vetor, disciplina?, ano?)`, `buscar_bncc_similar(vetor,
-limite, disciplina?, ano?)`.
+O catálogo de funcionalidades é a **fonte de verdade da navegação**: `src/modulos/registro.ts`.
+Cada módulo é `{ id, nome, essencial, rotas[] }`; cada rota é amarrada aos papéis que a veem +
+`ordem` na barra lateral. `montarNav(papel, habilitados)` deriva a sidebar. Módulos **essenciais**
+(visão-geral, tutor, cadastros, segurança, admin, responsável) são sempre ligados; **opcionais**
+(assistente, materiais, treinador, provas, planejamento, desempenho, analytics) a escola liga/desliga
+em `/gestor/modulos` (estado em `modulos_escola`, deploy-safe).
 
-### 6.4 Tutor (conversas)
-
-| Tabela | Linhas | Campos | Para quê |
-|---|---|---|---|
-| `sessoes_tutor` | 5 | `aluno_id`, `disciplina`, `iniciada_em`, `encerrada_em` | Uma conversa. Disciplina fixada na criação. |
-| `interacoes` | 16 | `sessao_id`, `autor` (aluno/ia), `conteudo`, `modelo`, `tokens_entrada/saida`, `latencia_ms`, `competencia_bncc`, `trace_id`, `anexo_imagem` | Cada turno da conversa, com telemetria completa. `anexo_imagem` guarda a foto (base64) que o aluno mandou. |
-| `interacao_fontes` | 6 | `interacao_id`, `chunk_id`, `score` | Rastreabilidade: quais trechos do livro embasaram a resposta. |
-
-### 6.5 Segurança e observabilidade
-
-| Tabela | Linhas | Campos | Para quê |
-|---|---|---|---|
-| `guardrail_eventos` | 0 | `categoria` (pii/off_topic/seguranca_infantil/injection/toxicidade), `acao`, `severidade`, `detalhe`, `trace_id` | Toda vez que um guardrail age. Visível para professor (sua turma) e gestor (escola toda). |
-| `auditoria` | 9 | `ator_id`, `acao`, `entidade`, `entidade_id`, `trace_id` | Trilha append-only de operações sensíveis. Visível para gestor/admin. |
-
-### 6.6 Provas
-
-| Tabela | Linhas | Campos | Para quê |
-|---|---|---|---|
-| `provas` | 0 | `turma_id`, `professor_id`, `disciplina`, `titulo`, `assunto`, `numero_questoes`, `status` (enum) | Uma avaliação. |
-| `questoes` | 0 | `prova_id`, `ordem`, `tipo` (enum objetiva/dissertativa), `enunciado`, `alternativas` (jsonb), `gabarito`, `explicacao` | Questões geradas por IA (ancoradas no livro) e editáveis pelo professor. |
-| `respostas` | 0 | `questao_id`, `aluno_id`, `resposta_aluno`, `correta`, `nota`, `feedback_ia`, `nota_manual`, `feedback_professor`, `corrigido_por`, `nota_efetiva` (coluna gerada = `coalesce(nota_manual, nota)`) | Resposta do aluno + correção automática/IA + possível sobrescrita manual do professor. |
-
-Enums: `status_prova` (`rascunho`/`publicada`/`encerrada`), `tipo_questao` (`objetiva`/`dissertativa`).
-
-*(Contagem zerada localmente porque os testes de prova nesta sessão foram limpos depois
-de verificados — o fluxo foi testado e funciona, ver Fase 3 e 5 no changelog.)*
-
-### 6.7 Notas e faltas (lançamento manual)
-
-| Tabela | Linhas | Campos | Para quê |
-|---|---|---|---|
-| `notas` | 0 | `aluno_id`, `turma_id`, `professor_id`, `prova_id?`, `disciplina`, `descricao`, `valor`, `nota_maxima`, `data_lancamento` | Notas avulsas (trabalho, participação) — independente do módulo de Provas. |
-| `faltas` | 0 | `aluno_id`, `turma_id`, `professor_id`, `data_falta`, `situacao` (enum), `motivo` | Situação: `justificada` / `nao_justificada`. |
-
-### 6.8 Planejamento de aula
-
-| Tabela | Linhas | Campos | Para quê |
-|---|---|---|---|
-| `planos_ensino` | 0 | `professor_id`, `disciplina`, `turma`, `ano_letivo`, `conteudo` (jsonb), `versao`, `ativo` | Plano de ensino gerado com IA, considerando BNCC + livro + alunos atípicos. |
-| `planos_aula` | 0 | `plano_ensino_id?`, `topico`, `data_aula`, `duracao_min`, `conteudo` (jsonb), `template`, `pai_id` (auto-referência) | Aulas individuais dentro de um plano. |
-| `adaptacoes_aula` | 0 | `plano_aula_id?`, `aluno_id?`, `tipo`, `descricao`, `estrategias` (jsonb) | Adaptações para alunos com atipicidades. |
-
-### 6.9 Métricas de uso
-
-| Tabela | Linhas | Para quê |
+| Módulo | Onde vive | O que faz |
 |---|---|---|
-| `acessos_professor` | 12 | Registro simples de acesso ao painel do professor (usado no KPI "Sessões" do gestor, indiretamente). |
-
-### 6.10 Row Level Security
-
-RLS ativo em todas as tabelas de negócio. Padrão: `for select using (escola_id = escola_atual())`,
-onde `escola_atual()`/`papel_atual()` leem claims de um JWT — **hoje não totalmente efetivo em
-runtime**, porque o login do piloto usa cookie HMAC próprio, não Supabase Auth (ver seção 9,
-gap de segurança #1). RLS está pronto e correto no schema, mas quem hoje impede vazamento
-entre escolas na prática é o filtro `where escola_id = $1` em cada função de `src/bd/*.ts`.
-
----
-
-## 7. O que já existe — histórico por fase
-
-| Fase | Entregue |
-|---|---|
-| **0 — Piloto** | Login por senha, RAG com grounding e recusa fora de escopo, guardrails (PII/injeção/segurança infantil), questões de treino, identidade visual. |
-| **1 — Painéis** | `/paineis`, rotas `/dashboard/{papel}`, RBAC por middleware, base de componentes UI. |
-| **2 — Gestor** | CRUD completo (turmas/professores/alunos), tabelas filtráveis com edição inline, gráficos (Recharts). |
-| **3 — Provas** | Elaborar prova com IA (ancorada no RAG), revisão/edição pelo professor, aluno responde questão a questão, feedback/gabarito, gráficos de notas/aprovação/evasão. |
-| **4 — Memória de contexto** | Conversa mantém contexto entre perguntas (TTL de 7 dias); sessão "fria" some do contexto mas continua visível no histórico. |
-| **5 — Cadastro estendido, notas, correção manual, dashboards, config** | Responsáveis, endereço/estado civil dos pais; notas/faltas manuais; correção manual de prova pelo professor; dashboard de desempenho (professor e gestor); configurações da escola (logo, nota); gestor com acesso a logs/auditoria de toda a escola; script de provisionamento de nova escola. |
-| **6 — Tutor em camadas, multimodal** | Busca em 3 níveis (livro → BNCC → conhecimento geral, sempre avisando a origem); feedback passo a passo em markdown; aluno pode continuar perguntando sobre uma questão de prova; upload de foto no chat (visão do gpt-4o-mini). |
-| **7 — Multi-série/disciplina, login por módulo** | Filtro de busca por disciplina+série; Português 6º e História 7º ingeridos (local **e produção**); seletor de disciplina no chat; `/paineis` público como escolha de perfil pré-login; correção do bug de imagem não persistida; nome da escola editável. |
+| **Tutor** (essencial) | `app/tutor`, `src/rag/tutor.ts` | Coração: tutor de IA multimodal (andaime) ancorado no material da turma. |
+| **Modo Treinador** | `app/treinos`, `app/professor/treinos`, `src/rag/treinador.ts`, `src/bd/treinos.ts` | Dever de casa anti-muleta: IA dá pistas e registra o processo do aluno; professor vê o processo. |
+| **Provas** | `app/provas`, `app/professor/provas`, `src/rag/provas.ts` | Elaborar (IA), responder questão a questão (com anti-cópia), corrigir (IA+manual), imprimir PDF. |
+| **Assistente da equipe** | `app/professor/assistente`, `src/rag/assistenteProfessor.ts` | IA que responde a professores/gestão a partir dos docs com audiência da equipe. |
+| **Materiais** | `app/{gestor,professor}/materiais`, `src/bd/materiais.ts`, `src/rag/ingestaoIncremental` | Upload de PDF (ingestão incremental) + escolha de audiência. |
+| **Planejamento** | `app/professor/planos`, `src/rag/planejamento.ts` | Planos de ensino/aula gerados com IA (BNCC + livro + alunos atípicos). |
+| **Desempenho** | `app/{professor,gestor}/desempenho`, `src/bd/notas.ts` | Lançar notas/faltas; dashboards de acertos por prova/questão. |
+| **Relatórios** | `app/gestor/relatorios`, `src/bd/relatorios.ts` | Filtros turma/disciplina/período + dimensão de **competência BNCC**. |
+| **Cadastros** (essencial) | `app/gestor/gestao`, `src/bd/gestao.ts` | CRUD turmas/professores/alunos/vínculos/família; reenturmar; import/export. |
+| **Segurança** (essencial) | `app/gestor/logs` | Auditoria + alertas de guardrail de toda a escola. |
+| **Responsável** (essencial) | `app/responsavel`, `src/bd/responsavel.ts` | Painel read-only (notas/faltas/atividade) por vínculo de email + consentimento LGPD. |
+| **PWA/Push** | `public/`, `src/notificacoes/push.ts`, `app/api/push` | App instalável + notificações (novo treino → avisa a turma). |
 
 ---
 
-## 8. Rodar localmente
+## 7. Modelo de dados — as 35 tabelas
+
+Convenção: identificadores em português sem acento, `snake_case`; toda tabela de negócio tem
+`escola_id` e `criado_em`. Fonte de verdade = `supabase/migrations/`.
+
+- **Núcleo multi-tenant:** `escolas`, `usuarios` (aluno/professor/gestor/admin/responsavel, com
+  campos de aluno e de família na mesma linha), `turmas`, `matriculas`, `professores_turmas`,
+  `responsaveis`, `configuracoes_escola`.
+- **Modularização:** `modulos_escola` (opcionais ligados por escola).
+- **Conteúdo e RAG:** `materiais_fonte` (o "livro"), `material_versoes` (versionamento
+  incremental), `material_chunks` (trechos vetorizados `vector(768)` + índice ivfflat),
+  `materiais_turmas` (audiência por turma), `materiais_publico` (audiência por papel/escola),
+  `disciplinas` (catálogo por escola), `competencias_bncc` (habilidades BNCC, 2ª camada de grounding).
+- **Tutor:** `sessoes_tutor`, `interacoes` (turnos + telemetria + foto), `interacao_fontes` (rastreabilidade).
+- **Modo Treinador:** `treinos`, `treino_sessoes`, `treino_interacoes` (o log do processo).
+- **Provas:** `provas`, `questoes` (objetiva/dissertativa), `respostas` (correção IA + manual).
+- **Notas/faltas/planejamento:** `notas`, `faltas`, `planos_ensino`, `planos_aula`, `adaptacoes_aula`.
+- **Segurança/observabilidade:** `guardrail_eventos`, `auditoria` (append-only), `acessos_professor`.
+- **LGPD:** `termos_privacidade` (versionado), `consentimentos`.
+- **PWA:** `push_inscricoes`.
+
+---
+
+## 8. Camada de IA — detalhe
+
+- **Fábricas trocáveis por env** (`LLM_PROVEDOR`, `EMBEDDING_PROVEDOR`): padrão **OpenAI**
+  (`gpt-4o-mini` + `text-embedding-3-small` 768d) em dev e produção. Gemini e Ollama ficam
+  disponíveis; `USAR_MOCK=1` p/ testes sem API.
+- **Guardrails** (`src/ia/guardrails.ts`): entrada (PII, prompt injection, segurança infantil,
+  toxicidade) e saída (revisão). Toda atuação vira `guardrail_eventos`.
+- **RAG em camadas** (tutor livre): livro → BNCC → conhecimento geral, sempre avisando a origem.
+  **Provas e geração de questões** são estritamente livro-only (não usam fallback).
+- **Audiência** (novo): a mesma `buscar_trechos` recebe `papel` + `incluir_conteudo` e filtra
+  documentos por quem pergunta (aluno/professor/gestor/escola) — ver §5.2.
+- **Multimodal de saída:** a IA emite `viz {json}` e o app desenha SVG (`DiagramaEpisteme`):
+  reta numérica, fração (barra/pizza), agrupamento, barras. **Não** usa geração de imagem por IA.
+
+---
+
+## 9. Segurança, multi-tenant e LGPD
+
+- **Isolamento entre escolas:** RLS ativo no schema (`escola_atual()`/`papel_atual()` leem claims
+  de JWT), mas **hoje NÃO é efetivo em runtime** porque o login do piloto usa cookie HMAC próprio,
+  não Supabase Auth. Quem impede vazamento na prática é o filtro `where escola_id = $1` em cada
+  função de `src/bd/*.ts` — por isso é regra de ouro. **Pendente (planejado): auth híbrida** que
+  emite `set local request.jwt.claims` por requisição, tornando o RLS efetivo (defesa em profundidade).
+- **Autorização por papel:** cada rota de API valida a sessão e o papel. Audiência de documento
+  papel/escola só o gestor define; o assistente do professor não é acessível ao aluno; o
+  responsável só vê aluno vinculado por email; professor só mexe no próprio treino/prova.
+- **LGPD (modo soft):** termo de privacidade versionado (`/privacidade`), consentimento parental
+  registrado no painel do responsável (`consentimentos`) — hoje registra, não bloqueia (gate
+  obrigatório fica pós-campanha com alunos já ativos em produção).
+- **Segredos:** chaves (OpenAI, VAPID, `SESSION_SECRET`, `DATABASE_URL`) em `.env.local` (dev,
+  git-ignored) / Vercel (prod). **Rotacionar as credenciais de teste antes de dados reais**;
+  a chave OpenAI hoje é pessoal do João (migrar p/ conta do projeto).
+
+---
+
+## 10. Rodar localmente, migrations e deploy
 
 ```powershell
-supabase start
-supabase db reset          # aplica todas as migrations + seed.sql
-# .env.local precisa ter: DATABASE_URL (local), NEXT_PUBLIC_SUPABASE_URL,
-#   EMBEDDING_PROVEDOR=openai, LLM_PROVEDOR=openai, OPENAI_API_KEY, SESSION_SECRET
-npx tsx src/rag/ingestaoBncc.ts
-npx tsx src/rag/ingestaoLivro.ts superacao.txt 00000000-0000-0000-0000-000000000001 00000000-0000-0000-0000-000000000010
-npm install
-npm run dev
+# pré-requisito: Docker Desktop aberto
+supabase start                 # sobe o Supabase local (Docker)
+supabase migration up          # aplica migrations pendentes no banco LOCAL
+# .env.local precisa de: DATABASE_URL (local, 127.0.0.1:54322), NEXT_PUBLIC_SUPABASE_URL,
+#   EMBEDDING_PROVEDOR=openai, LLM_PROVEDOR=openai, OPENAI_API_KEY, SESSION_SECRET,
+#   NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
+npm run dev                    # http://localhost:3000  (rode UMA instância só)
 ```
 
-Comandos úteis: `npm run typecheck` (tsc --noEmit), `npm run build` (o mesmo que a Vercel
-roda), `npm run demo:rag` (exercita o pipeline sem UI).
+Comandos: `npm run typecheck` · `npm run build` (o mesmo que a Vercel roda) · `npm run start`
+(serve o build — bem mais rápido que `dev` p/ testar) · `npm run demo:rag`.
+
+**Deploy:** `git push` na `main` → Vercel builda e publica. Migrations no cloud: `supabase db push`
+(a `DATABASE_URL` de prod é o **pooler** `...pooler.supabase.com`, não a conexão direta IPv6).
+
+**Gotchas críticos:**
+- **Nunca rode `npm run dev` e `npm run build` ao mesmo tempo** — corrompem `.next`
+  (`routes-manifest.json` ENOENT). Se acontecer: parar tudo, `rm -rf .next`, subir limpo.
+- **`npm install` com o dev ativo trava arquivos** (`next-swc`) — pare o dev antes.
+- **`src/bd/pool.ts` lê `DATABASE_URL` no import** — em scripts `tsx`, setar a env no shell antes.
+- **Editar migration já aplicada não a reexecuta** — criar migration nova (`create or replace`)
+  e corrigir a original só p/ refletir o estado (documentação).
 
 ---
 
-## 9. Débito técnico e pontos de atenção conhecidos
+## 11. Débito técnico e pendências conhecidas
 
-1. **Autenticação de piloto, não de produção.** Cookie HMAC + pbkdf2 funciona, mas não
-   tem recuperação de senha, 2FA, nem integra com o RLS via JWT real. Antes de dados
-   reais de aluno: migrar para Supabase Auth (ou equivalente) e então o RLS passa a
-   proteger de verdade em runtime, não só como defesa em profundidade teórica.
-2. **LGPD**: consentimento parental (art. 14) e minimização de dados — decisão consciente
-   do João de adiar, mas é bloqueante antes de qualquer aluno real usar o sistema com
-   dados verdadeiros.
-3. **Credenciais de teste** (senha do banco, chave OpenAI pessoal, senha `episteme123`)
-   precisam ser rotacionadas antes de produção real. A chave OpenAI hoje é pessoal do
-   João — migrar para uma conta do projeto.
-4. **`interacoes.anexo_imagem` guarda a imagem em base64 direto na coluna `text`.**
-   Funciona, mas não escala bem (linhas grandes no Postgres). Se o uso de fotos crescer,
-   trocar por um bucket do Supabase Storage e guardar só a URL.
-5. **`configuracoes_escola.logo_url` é uma URL simples** (sem upload/storage próprio) —
-   suficiente para o piloto; um upload de arquivo direto exigiria Supabase Storage.
-6. **BNCC só tem 34 habilidades cadastradas**, todas de Matemática 6º ano — a 2ª camada
-   de grounding (livro → BNCC → geral) não tem o que achar para Português/História ainda,
-   então essas disciplinas caem direto para "conhecimento geral" quando o livro não cobre
-   o assunto. Não é um bug, é uma lacuna de dado (precisaria popular BNCC das outras
-   disciplinas/séries).
-7. **Auto-cadastro de aluno sempre matricula na turma fixa `TURMA_6ANO`** (`src/bd/alunos.ts`).
-   Não é usado no fluxo principal (a maioria dos alunos é cadastrada pelo gestor), mas é
-   uma pendência se o auto-cadastro público for usado com turmas variadas.
-8. **Criação de nova escola é só via script interno** (`local/criar_escola.ts`), não uma
-   tela. Decisão deliberada (ver Fase 5) — evita construir um fluxo público de billing/
-   segurança antes de precisar.
-9. **Sem testes automatizados formais** (só scripts manuais em `local/test_*.ts`, fora do
-   Git). Funciona para o ritmo atual, mas cresce o risco de regressão conforme o projeto
-   cresce.
-10. **`src/bd/pool.ts` lê `DATABASE_URL` no momento do `import`**, antes de qualquer
-    `carregarEnvLocal()` — scripts standalone precisam setar a variável de ambiente no
-    shell *antes* de rodar (`$env:DATABASE_URL=...`), não dentro do próprio script.
+1. **Auth híbrida / RLS efetivo em runtime** — a maior peça de segurança pendente (§9).
+2. **LGPD gate obrigatório** — hoje é soft; virar bloqueante após campanha de consentimento.
+3. **Rotacionar credenciais de teste** e migrar a chave OpenAI p/ conta do projeto.
+4. **Editar audiência de doc existente na UI** (hoje só no upload).
+5. **Push também em prova publicada / feedback pronto** (hoje só treino publicado).
+6. **Ícones PWA em PNG 192/512** (hoje SVG — melhora compat de instalação).
+7. **BNCC de Português/História é um conjunto curado** — conferir/completar contra a BNCC oficial.
+8. **`interacoes.anexo_imagem` guarda base64 na coluna** — se o uso de fotos crescer, migrar p/ Supabase Storage.
+9. **Sem testes automatizados formais** (só scripts manuais em `local/`).
 
 ---
 
-## 10. Ingestão em produção — concluída (30/07/2026)
+## 12. Convenções
 
-O material de **Português 6º ano** (1341 trechos) e **História 7º ano** (1634 trechos)
-foi ingerido em produção via a API REST do Supabase (`@supabase/supabase-js` com a
-`service_role` key, mesmo padrão de `src/rag/repositorioSupabase.ts`) — caminho usado
-porque as variáveis de ambiente da Vercel estão marcadas como **sensitive** (write-only:
-nem a API nem o painel devolvem o valor depois de salvo), então a `DATABASE_URL` do
-pooler não pôde ser lida de lá. Script pontual descartado depois de rodar (não fica no
-repositório). `materiais_fonte` em produção agora tem as 3 disciplinas: matemática (6º),
-português (6º) e história (7º).
-
-Também vinculado, em produção: o professor que já lecionava Português na turma do 7º ano
-passou a lecionar História nela também (a turma de 7º já existia em produção, criada
-pelo próprio time — **note**: produção já tinha uso orgânico real acontecendo (vários
-alunos com nomes/emails reais, além dos usuários de teste do seed), não é só um espelho
-do ambiente local. Qualquer ação em produção daqui pra frente deve levar isso em conta.
-
-### Como refazer a ingestão de um material novo em produção
-
-Sem a `DATABASE_URL` (bloqueada como sensitive), usar a API REST do Supabase:
-
-```ts
-import { createClient } from "@supabase/supabase-js";
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-// 1. insert em materiais_fonte (disciplina, ano, titulo) -> pega o id
-// 2. chunkarTexto() do texto do livro (src/rag/chunkerTexto.ts)
-// 3. embeddings.gerarLote() em lotes de 100
-// 4. supabase.from("material_chunks").insert([...]) com embedding como "[1,2,3]" (string)
-```
-
-Isso reflete `src/rag/repositorioSupabase.ts`, o caminho que o próprio `ingestaoLivro.ts`
-já usa quando `DATABASE_URL` não está definida.
-
----
-
-## 11. Roadmap — o que vem depois, em ordem sugerida
-
-Critério de ordenação: bloqueantes de segurança/dados reais primeiro, depois o que tem
-maior impacto de uso com menor esforço, depois o resto.
-
-### Curto prazo (próximas sessões)
-1. **Popular BNCC de Português e História** — hoje só Matemática tem habilidades
-   cadastradas; sem isso a 2ª camada de grounding não funciona para as novas disciplinas.
-2. **Modo treinador (tarefa de casa anti-muleta)** — pedido explícito do João e já
-   desenhado por outra IA numa sessão anterior: a IA dá pistas e registra o processo do
-   aluno, sem entregar a resposta. Justificativa: é a extensão natural da filosofia
-   "parceira cognitiva" para o dever de casa, onde hoje não há registro de processo.
-3. **Exportação de prova em PDF** (`@react-pdf/renderer`, já cogitado) — professores
-   frequentemente precisam imprimir provas para aplicação presencial; hoje só existe a
-   versão digital.
-
-### Médio prazo
-5. **Auth real (Supabase Auth) + LGPD** — pré-requisito conjunto e bloqueante antes de
-   qualquer dado de aluno real (não-teste). Justificativa: risco legal e de confiança dos
-   pais é o maior risco do projeto hoje.
-6. **Testes automatizados** (vitest, cobrindo pelo menos os pipelines de RAG e provas) —
-   à medida que o projeto cresce, o custo de regressão manual sobe; vale investir assim
-   que a auth real entrar (mudança grande o suficiente pra justificar a rede de segurança).
-7. **Imagens *nas respostas* da IA** (diferente do upload — aqui é a IA gerando um
-   diagrama/gráfico simples, ex. reta numérica, gráfico de fração). Хoje só existe
-   entrada multimodal (aluno manda foto), não saída.
-8. **Cronograma / grade de horários** — módulo do roadmap original ainda não iniciado.
-
-### Longo prazo
-9. **Self-service de cadastro de escola** — hoje é só via script interno; uma tela
-   pública exigiria pensar em billing/verificação/abuso antes de valer a pena.
-10. **Storage de imagem dedicado** (Supabase Storage) em vez de base64 na coluna —
-    só vale a pena se o uso de fotos no tutor crescer de fato.
-11. **Painel do Responsável** — hoje é só um card "em breve" na tela de escolha de perfil.
-12. **Migrar chave OpenAI para conta do projeto** (hoje é pessoal do João) — trivial, mas
-    fica mais urgente conforme o uso cresce e a chave pessoal vira gargalo de billing.
-
----
-
-## 12. Lições aprendidas (evitar retrabalho)
-
-- **Sempre `git push` antes do deploy** — a Vercel builda a partir do GitHub, não da máquina local.
-- **Conexão direta do Supabase (`db.<ref>.supabase.co`) é IPv6** e não resolve em rede
-  IPv4 comum → sempre usar o **pooler** (`...pooler.supabase.com`): Transaction (6543)
-  para o app serverless, Session (5432) para scripts/ingestão.
-- **Editar uma migration já aplicada não a reexecuta.** Correções em produção depois do
-  fato precisam ser SQL direto (`alter table ...`), e a migration original deve ser
-  atualizada só para refletir o estado real (documentação), não para "consertar" o passado.
-- **Senha do banco com `@`** vira `%40` na connection string.
-- **`pool.ts` lê `DATABASE_URL` no import** — setar a variável no shell *antes* de rodar
-  qualquer script de ingestão/administração, nunca dentro do próprio script.
-- **`create table if not exists` não altera coluna existente** — se o tipo de uma coluna
-  mudar (ex. dimensão do vetor), precisa de `alter table ... alter column` explícito.
-- **`npm run dev` e `npm run build` não devem rodar ao mesmo tempo** na mesma pasta —
-  os dois escrevem em `.next/` com formatos incompatíveis e geram erros `ENOENT`
-  confusos. Se acontecer, parar tudo, `rm -rf .next` e subir de novo limpo.
+- **Identificadores em português sem acento** (variáveis, funções, arquivos); case idiomático por
+  linguagem (camelCase TS, snake_case SQL, PascalCase componentes); palavras-chave SQL em inglês.
+  Comentários em português.
+- **Toda mudança:** `npm run typecheck` + `npm run build` antes de considerar pronto; manter a
+  identidade visual e os componentes de `app/componentes/ui`; commits pequenos e descritivos.
+- **Antes de mexer no schema:** ler as migrations existentes em `supabase/migrations`.
