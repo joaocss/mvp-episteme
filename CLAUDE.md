@@ -196,6 +196,27 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   tokens/componentes da marca (Cartao/Botao/Campo/Selo) — sem hex hardcoded;
   é o exemplar visual a seguir ao redesenhar outras telas.
 
+- **Fase 10 — Ingestão incremental (porte TS de `rag-ingestao-incremental`):**
+  migration `20260806000200_ingestao_incremental`. Conceitos portados da lib
+  Python para TypeScript nativo (sem infra Python — decisão de custo+segurança):
+  **versionamento** de material (`material_versoes`, uma versão por upload, só
+  uma `vigente`), **publish atômico** (a nova versão vira vigente e a anterior
+  `substituida` numa transação — sem janela de resposta errada; índice parcial
+  `uniq_versao_vigente` garante ≤1 vigente), **dedup por hash** (hash do arquivo
+  = idempotência → `duplicada` custo zero; hash de conteúdo por chunk = reuso de
+  embeddings entre versões, só re-vetoriza o que mudou — ~86% de reuso medido ao
+  editar 1 de 40 parágrafos), **deleção lógica** (`excluido_em`) e **janelas de
+  vigência** (`vigencia_inicio/fim`). Código: `src/rag/ingestaoIncremental/`
+  (`hashes.ts` puro + `pipeline.ts`) + `src/bd/materiaisVersoes.ts`. A rota
+  `app/api/materiais` agora usa `ingerirPdfIncremental` e aceita `materialId`
+  para **revisar** um material (nova versão); a UI ganhou selo `v{n}` e botão
+  "Nova versão". **Aditivo e backward-compatible**: `material_chunks` legados
+  (`versao_id` null) continuam sempre ativos; `buscar_trechos` (mesma assinatura
+  de 6 args) só aplica o filtro de versão a chunks versionados. `listarMateriais`
+  é deploy-safe (query version-aware com fallback à legada em `42P01/42703`).
+  Teste sem banco: `npx tsx local/testarIncremental.ts`. O `ingestaoPdf.ts`
+  antigo permanece (não é mais chamado pela rota, mas serve de referência).
+
 ## Roadmap (ordem do brief)
 
 - **B — Gestão de alunos:** reenturmar aluno (UI; `definirTurmaAluno` já existe),
@@ -236,6 +257,13 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   quebra antes da migration rodar. Aplicar (`supabase migration up` / `db push`)
   para o toggle em `/gestor/modulos` passar a **persistir**; sem ela, os toggles
   não gravam mas nada quebra.
+- **Migration `20260806000200_ingestao_incremental` (Fase 10)**: **aditiva e
+  backward-compatible** — chunks legados (`versao_id` null) seguem ativos e
+  `listarMateriais` tem fallback à query legada, então a app não quebra antes da
+  migration. Aplicar (`supabase migration up` / `db push`) para o versionamento
+  e o dedup passarem a valer; sem ela, um upload novo **falha** ao tentar gravar
+  em `material_versoes` (a listagem e a busca continuam funcionando). Ordem
+  correta: aplicar a migration ANTES de fazer upload de material no ambiente.
 - Supabase local exige Docker. No Windows do João, o Docker Desktop
   (`%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe`) precisa ser aberto
   manualmente e concluir o setup na 1ª vez; o daemon não sobe só via CLI.

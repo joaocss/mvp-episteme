@@ -23,6 +23,7 @@ export interface DisciplinaOpcao { id: string; nome: string; slug: string }
 export interface Material {
   id: string; tipo: string; disciplina: string; ano: string; titulo: string;
   referencia: string | null; statusIngestao: string; trechos: number;
+  versao?: number | null;
   turmas: { id: string; nome: string }[]; criadoEm: string;
 }
 
@@ -32,6 +33,16 @@ const COR_STATUS: Record<string, CorSelo> = {
 const ROTULO_STATUS: Record<string, string> = {
   concluido: "Ingerido", processando: "Processando", pendente: "Pendente", erro: "Falhou",
 };
+
+// Mensagem de sucesso da ingestao, refletindo o resultado do pipeline incremental
+// (duplicata sem custo, ou nova versao vigente com quantos trechos foram reusados).
+function mensagemResultado(titulo: string, d: any): string {
+  if (d.status === "duplicada") {
+    return `"${titulo}": conteudo identico ao ja ingerido — nada a reprocessar (v${d.versao}).`;
+  }
+  const reuso = d.reusados > 0 ? ` (${d.reusados} trechos reaproveitados)` : "";
+  return `"${titulo}" ingerido: v${d.versao}, ${d.trechos} trechos de ${d.paginas} paginas${reuso}.`;
+}
 
 // Chip selecionavel de turma, reusado no upload e na edicao de vinculos.
 function ChipTurma({
@@ -105,13 +116,31 @@ export default function GestaoMateriais({
       const r = await fetch("/api/materiais", { method: "POST", body: fd });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { setMsg(d.erro ?? "Falha ao enviar."); await recarregar(); return; }
-      setOk(`"${titulo}" ingerido: ${d.trechos} trechos de ${d.paginas} paginas.`);
+      setOk(mensagemResultado(titulo, d));
       setTitulo(""); setArquivo(null); setTurmasSel([]);
       const input = document.getElementById("arquivo-pdf") as HTMLInputElement | null;
       if (input) input.value = "";
       await recarregar();
     } finally {
       setEnviando(false);
+    }
+  }
+
+  // ------- revisao (nova versao) de um material existente -------
+  const [revisando, setRevisando] = useState<string | null>(null);
+  async function enviarRevisao(m: Material, file: File) {
+    setRevisando(m.id); setMsg(""); setOk("");
+    try {
+      const fd = new FormData();
+      fd.set("materialId", m.id);
+      fd.set("arquivo", file);
+      const r = await fetch("/api/materiais", { method: "POST", body: fd });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { setMsg(d.erro ?? "Falha ao revisar."); await recarregar(); return; }
+      setOk(mensagemResultado(m.titulo, d));
+      await recarregar();
+    } finally {
+      setRevisando(null);
     }
   }
 
@@ -264,7 +293,12 @@ export default function GestaoMateriais({
               <tbody>
                 {materiais.map((m) => (
                   <tr key={m.id} className="border-b border-borda/70 align-top">
-                    <td className="py-3 pr-3 font-medium text-grafite">{m.titulo}</td>
+                    <td className="py-3 pr-3 font-medium text-grafite">
+                      <span className="flex items-center gap-2">
+                        {m.titulo}
+                        {m.versao != null && <Selo cor="roxo" title="Versao vigente">v{m.versao}</Selo>}
+                      </span>
+                    </td>
                     <td className="py-3 pr-3 text-slate-600">{nomeDisciplina(m.disciplina)}</td>
                     <td className="py-3 pr-3 text-slate-600">{m.ano}</td>
                     <td className="py-3 pr-3">
@@ -299,6 +333,15 @@ export default function GestaoMateriais({
                     </td>
                     <td className="py-3 pr-1">
                       <div className="flex justify-end gap-1.5">
+                        <label className={cn(
+                          "inline-flex min-h-[38px] cursor-pointer items-center gap-1.5 rounded-lg border border-roxo/30 bg-white px-3 py-2 text-sm font-medium text-roxo transition hover:bg-creme",
+                          revisando === m.id && "pointer-events-none opacity-50",
+                        )} title="Enviar uma nova versao do PDF (reaproveita trechos identicos)">
+                          <Icone nome="versao" className="h-4 w-4" />
+                          {revisando === m.id ? "Enviando…" : "Nova versao"}
+                          <input type="file" accept="application/pdf,.pdf" className="hidden"
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) enviarRevisao(m, f); e.target.value = ""; }} />
+                        </label>
                         <Botao tamanho="pequeno" variante="secundario" onClick={() => iniciarEdicao(m)}>Turmas</Botao>
                         <Botao tamanho="pequeno" variante="fantasma" className="text-alerta hover:bg-red-50"
                           onClick={() => excluir(m.id)} aria-label={`Excluir ${m.titulo}`}>

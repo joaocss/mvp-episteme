@@ -16,9 +16,13 @@ export interface MaterialLista {
   referencia: string | null;
   statusIngestao: StatusIngestao;
   trechos: number;
+  versao: number | null; // numero da versao vigente (null = material legado sem versao)
   turmas: { id: string; nome: string }[];
   criadoEm: string;
 }
+
+// Postgres: relacao ausente / coluna ausente (migration de versionamento nao aplicada).
+const ERROS_SCHEMA_AUSENTE = new Set(["42P01", "42703"]);
 
 export async function criarMaterial(
   escolaId: string,
@@ -30,6 +34,15 @@ export async function criarMaterial(
     [escolaId, dados.tipo, dados.disciplina, dados.ano, dados.titulo, dados.referencia ?? null],
   );
   return rows[0].id;
+}
+
+// Confere se um material pertence a escola (isolamento antes de revisar/versionar).
+export async function materialPertenceAEscola(escolaId: string, materialId: string): Promise<boolean> {
+  const { rows } = await pool.query(
+    `select 1 from materiais_fonte where id = $2 and escola_id = $1 limit 1`,
+    [escolaId, materialId],
+  );
+  return rows.length > 0;
 }
 
 export async function atualizarStatusIngestao(
@@ -92,26 +105,64 @@ export async function definirTurmasDoMaterial(
   }
 }
 
+// Query version-aware: conta so os trechos ATIVOS (chunks legados sem versao +
+// chunks da versao vigente) e traz o numero da versao vigente. Versoes
+// substituidas nao inflam a contagem.
+const SQL_MATERIAIS_VERSIONADO = `
+  select
+    m.id, m.tipo, m.disciplina, m.ano, m.titulo, m.referencia, m.status_ingestao, m.criado_em,
+    vv.versao as versao_atual,
+    coalesce(ch.n, 0) as trechos,
+    coalesce(
+      json_agg(json_build_object('id', t.id, 'nome', t.nome))
+        filter (where t.id is not null), '[]'
+    ) as turmas
+  from materiais_fonte m
+  left join material_versoes vv
+    on vv.material_id = m.id and vv.status = 'vigente' and vv.excluido_em is null
+  left join (
+    select c.material_id, count(*) as n
+    from material_chunks c
+    left join material_versoes v on v.id = c.versao_id
+    where c.versao_id is null or (v.status = 'vigente' and v.excluido_em is null)
+    group by c.material_id
+  ) ch on ch.material_id = m.id
+  left join materiais_turmas mt on mt.material_id = m.id
+  left join turmas t on t.id = mt.turma_id
+  where m.escola_id = $1
+  group by m.id, vv.versao, ch.n
+  order by m.criado_em desc`;
+
+// Query legada (pre-versionamento): conta todos os chunks do material. Usada
+// como fallback quando a migration de versionamento ainda nao foi aplicada.
+const SQL_MATERIAIS_LEGADO = `
+  select
+    m.id, m.tipo, m.disciplina, m.ano, m.titulo, m.referencia, m.status_ingestao, m.criado_em,
+    null::int as versao_atual,
+    coalesce(ch.n, 0) as trechos,
+    coalesce(
+      json_agg(json_build_object('id', t.id, 'nome', t.nome))
+        filter (where t.id is not null), '[]'
+    ) as turmas
+  from materiais_fonte m
+  left join (
+    select material_id, count(*) as n from material_chunks group by material_id
+  ) ch on ch.material_id = m.id
+  left join materiais_turmas mt on mt.material_id = m.id
+  left join turmas t on t.id = mt.turma_id
+  where m.escola_id = $1
+  group by m.id, ch.n
+  order by m.criado_em desc`;
+
 export async function listarMateriais(escolaId: string): Promise<MaterialLista[]> {
-  const { rows } = await pool.query(
-    `select
-       m.id, m.tipo, m.disciplina, m.ano, m.titulo, m.referencia, m.status_ingestao, m.criado_em,
-       coalesce(ch.n, 0) as trechos,
-       coalesce(
-         json_agg(json_build_object('id', t.id, 'nome', t.nome))
-           filter (where t.id is not null), '[]'
-       ) as turmas
-     from materiais_fonte m
-     left join (
-       select material_id, count(*) as n from material_chunks group by material_id
-     ) ch on ch.material_id = m.id
-     left join materiais_turmas mt on mt.material_id = m.id
-     left join turmas t on t.id = mt.turma_id
-     where m.escola_id = $1
-     group by m.id, ch.n
-     order by m.criado_em desc`,
-    [escolaId],
-  );
+  let rows: any[];
+  try {
+    ({ rows } = await pool.query(SQL_MATERIAIS_VERSIONADO, [escolaId]));
+  } catch (e: any) {
+    // Migration de versionamento ainda nao aplicada: cai para a query legada.
+    if (!ERROS_SCHEMA_AUSENTE.has(e?.code)) throw e;
+    ({ rows } = await pool.query(SQL_MATERIAIS_LEGADO, [escolaId]));
+  }
   return rows.map((r) => {
     const trechos = Number(r.trechos) || 0;
     // Materiais ingeridos via CLI antigo nunca setaram status_ingestao; se ja ha
@@ -119,16 +170,17 @@ export async function listarMateriais(escolaId: string): Promise<MaterialLista[]
     const status = (r.status_ingestao === "pendente" && trechos > 0)
       ? "concluido" : (r.status_ingestao as StatusIngestao);
     return {
-    id: r.id,
-    tipo: r.tipo,
-    disciplina: r.disciplina,
-    ano: r.ano,
-    titulo: r.titulo,
-    referencia: r.referencia ?? null,
-    statusIngestao: status,
-    trechos,
-    turmas: (typeof r.turmas === "string" ? JSON.parse(r.turmas) : r.turmas) as { id: string; nome: string }[],
-    criadoEm: new Date(r.criado_em).toISOString(),
+      id: r.id,
+      tipo: r.tipo,
+      disciplina: r.disciplina,
+      ano: r.ano,
+      titulo: r.titulo,
+      referencia: r.referencia ?? null,
+      statusIngestao: status,
+      trechos,
+      versao: r.versao_atual != null ? Number(r.versao_atual) : null,
+      turmas: (typeof r.turmas === "string" ? JSON.parse(r.turmas) : r.turmas) as { id: string; nome: string }[],
+      criadoEm: new Date(r.criado_em).toISOString(),
     };
   });
 }

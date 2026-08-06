@@ -8,8 +8,9 @@ import { randomUUID } from "node:crypto";
 import { lerToken } from "../../../lib/sessao";
 import {
   criarMaterial, listarMateriais, excluirMaterial, definirTurmasDoMaterial, vincularMaterialTurma,
+  materialPertenceAEscola,
 } from "../../../src/bd/materiais";
-import { ingerirPdf } from "../../../src/rag/ingestaoPdf";
+import { ingerirPdfIncremental } from "../../../src/rag/ingestaoIncremental/pipeline";
 import { registrarAuditoria } from "../../../src/rag/repositorioConversas";
 
 export const runtime = "nodejs";
@@ -42,6 +43,9 @@ export async function POST(requisicao: Request) {
   try { form = await requisicao.formData(); }
   catch { return NextResponse.json({ erro: "envie os dados como multipart/form-data" }, { status: 400 }); }
 
+  // materialId presente = REVISAR um material existente (nova versao do conteudo).
+  // Ausente = criar um material novo (versao 1).
+  const revisarId = String(form.get("materialId") ?? "").trim() || null;
   const titulo = String(form.get("titulo") ?? "").trim();
   const disciplina = String(form.get("disciplina") ?? "").trim();
   const ano = String(form.get("ano") ?? "").trim();
@@ -50,9 +54,6 @@ export async function POST(requisicao: Request) {
   const turmaIds = form.getAll("turmaIds").map((t) => String(t)).filter(Boolean);
   const arquivo = form.get("arquivo");
 
-  if (!titulo || !disciplina || !ano) {
-    return NextResponse.json({ erro: "informe titulo, disciplina e ano" }, { status: 400 });
-  }
   if (!(arquivo instanceof File)) {
     return NextResponse.json({ erro: "anexe um arquivo PDF" }, { status: 400 });
   }
@@ -63,16 +64,32 @@ export async function POST(requisicao: Request) {
     return NextResponse.json({ erro: "PDF acima de 20 MB" }, { status: 400 });
   }
 
-  const materialId = await criarMaterial(esc, { tipo, disciplina, ano, titulo, referencia });
-  for (const turmaId of turmaIds) await vincularMaterialTurma(esc, materialId, turmaId);
+  // Descobre/cria o material alvo.
+  let materialId: string;
+  if (revisarId) {
+    if (!(await materialPertenceAEscola(esc, revisarId))) {
+      return NextResponse.json({ erro: "material nao encontrado" }, { status: 404 });
+    }
+    materialId = revisarId;
+  } else {
+    if (!titulo || !disciplina || !ano) {
+      return NextResponse.json({ erro: "informe titulo, disciplina e ano" }, { status: 400 });
+    }
+    materialId = await criarMaterial(esc, { tipo, disciplina, ano, titulo, referencia });
+    for (const turmaId of turmaIds) await vincularMaterialTurma(esc, materialId, turmaId);
+  }
 
   try {
     const bytes = new Uint8Array(await arquivo.arrayBuffer());
-    const resultado = await ingerirPdf(esc, materialId, bytes);
-    await registrarAuditoria(esc, sessao.usuarioId, "material.upload", "materiais_fonte", materialId, randomUUID());
+    const resultado = await ingerirPdfIncremental(esc, materialId, bytes);
+    await registrarAuditoria(
+      esc, sessao.usuarioId, revisarId ? "material.revisar" : "material.upload",
+      "materiais_fonte", materialId, randomUUID(),
+    );
     return NextResponse.json({ ok: true, materialId, ...resultado });
   } catch (e: any) {
-    // O material fica gravado com status 'erro' para o usuario reprocessar/excluir.
+    // Material novo com falha fica com status 'erro'; revisao que falha NAO
+    // derruba a versao vigente anterior (o pipeline mantem o material servindo).
     return NextResponse.json(
       { erro: e?.message?.includes("escaneado") ? e.message : "Falha ao processar o PDF.", materialId },
       { status: 400 },
