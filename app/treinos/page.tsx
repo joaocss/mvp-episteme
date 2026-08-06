@@ -8,6 +8,7 @@ import { Cartao } from "../componentes/ui/Cartao";
 import { Selo } from "../componentes/ui/Selo";
 import { Icone } from "../componentes/ui/Icone";
 import { EstadoVazio } from "../componentes/ui/EstadoVazio";
+import AtivarNotificacoes from "../componentes/AtivarNotificacoes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export default async function PaginaTreinosAluno() {
       <CabecalhoPagina
         titulo="Treinos"
         subtitulo="Desafios da sua turma. Aqui a IA nao entrega a resposta: ela te ajuda a chegar la com pistas."
+        acoes={<AtivarNotificacoes />}
       />
       <div className="mt-6">
         {treinos.length === 0 ? (

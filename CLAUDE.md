@@ -288,6 +288,22 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   (Fase 10). Padrão reutilizável documentado na memória do João
   (`reference_rag_audiencia_incremental`).
 
+- **Fase 18 — PWA instalável + notificações push** (migration
+  `20260806000700`): `public/manifest.webmanifest` + `public/sw.js` (push +
+  notificationclick) + `RegistrarPWA.tsx` (registra o SW no `layout.tsx`; layout
+  ganhou `manifest`/`themeColor`/`appleWebApp`). Web Push (VAPID) via lib
+  **`web-push`**: `push_inscricoes` (por usuário), `src/bd/push.ts`,
+  `src/notificacoes/push.ts` (`notificarTurma`, no-op se VAPID ausente, remove
+  inscrições 410). Opt-in: `AtivarNotificacoes.tsx` (pede permissão + subscribe)
+  no cabeçalho de `/treinos` do aluno. API `app/api/push/inscrever`. **Disparo:**
+  publicar treino (`/api/treinos` POST publicar / PATCH publicado) → `notificarTurma`
+  os alunos. **Chaves VAPID:** `.env.local` tem chaves de DEV; em produção gerar
+  novas (`npx web-push generate-vapid-keys`) e configurar `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+  / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` na Vercel (privada NUNCA commitada).
+  Ícones do manifest usam `icone-episteme.svg` (trocar por PNG 192/512 p/ melhor
+  compat de instalação). Entrega de push (subscribe + recebimento) é difícil de
+  automatizar — testar em device/navegador real.
+
 > **Verificação em runtime (Docker local, 06/ago):** módulos (toggle+nav),
 > materiais version-aware, Modo Treinador (loop completo com LLM real, coach
 > retém a resposta), BNCC (56 habilidades embeddadas), Responsável (login+vínculo

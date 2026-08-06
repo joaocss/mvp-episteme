@@ -7,9 +7,10 @@ import { randomUUID } from "node:crypto";
 import { lerToken } from "../../../lib/sessao";
 import {
   criarTreino, listarTreinosDoProfessor, definirStatusTreino, excluirTreino,
-  turmasDisciplinasDoProfessor, type StatusTreino,
+  turmasDisciplinasDoProfessor, obterTreinoDoProfessor, type StatusTreino,
 } from "../../../src/bd/treinos";
 import { registrarAuditoria } from "../../../src/rag/repositorioConversas";
+import { notificarTurma } from "../../../src/notificacoes/push";
 
 export const runtime = "nodejs";
 
@@ -52,6 +53,11 @@ export async function POST(requisicao: Request) {
     objetivo: String(d.objetivo ?? "").trim() || null, publicar: Boolean(d.publicar),
   });
   await registrarAuditoria(s.escolaId, s.usuarioId, "treino.criar", "treinos", id, randomUUID());
+  if (d.publicar) {
+    await notificarTurma(s.escolaId, turmaId, {
+      titulo: "Novo treino disponivel", corpo: titulo, url: "/treinos", tag: `treino-${id}`,
+    });
+  }
   return NextResponse.json({ ok: true, id });
 }
 
@@ -66,6 +72,14 @@ export async function PATCH(requisicao: Request) {
   }
   await definirStatusTreino(s.escolaId, s.usuarioId, treinoId, status);
   await registrarAuditoria(s.escolaId, s.usuarioId, `treino.${status}`, "treinos", treinoId, randomUUID());
+  if (status === "publicado") {
+    const treino = await obterTreinoDoProfessor(s.escolaId, s.usuarioId, treinoId);
+    if (treino) {
+      await notificarTurma(s.escolaId, treino.turmaId, {
+        titulo: "Novo treino disponivel", corpo: treino.titulo, url: "/treinos", tag: `treino-${treinoId}`,
+      });
+    }
+  }
   return NextResponse.json({ ok: true });
 }
 

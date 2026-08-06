@@ -1,0 +1,16 @@
+{
+  "name": "Episteme — Inteligência que ensina a pensar",
+  "short_name": "Episteme",
+  "description": "Tutor de IA ancorado no material da escola. Treinos, provas e acompanhamento.",
+  "start_url": "/paineis",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F7F7FB",
+  "theme_color": "#3B2C63",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icone-episteme.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icone-episteme.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "maskable" },
+    { "src": "/icone-episteme.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
