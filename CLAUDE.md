@@ -265,6 +265,29 @@ Sistema no ar (GitHub `joaocss/mvp-episteme` → Vercel → Supabase). Concluíd
   `src/bd/responsavel.ts`. Papel adicionado ao tipo `Papel`, `ROTULO_PAPEL`,
   `ROTA_PAPEL`/`TITULO_PAPEL` (login), middleware e card de `/paineis`.
 
+- **Fase 16 — Saída multimodal do tutor (andaime):** `src/rag/tutor.ts` reforça a
+  pedagogia (sempre exemplo+analogia do cotidiano, adapta à série) e emite blocos
+  ```viz {json}``` que o app desenha em SVG determinístico (NÃO usa DALL·E, que
+  erra matemática): `app/componentes/DiagramaEpisteme.tsx` (reta_numerica, fracao
+  barra/pizza, grupos, barras) + `RespostaRica.tsx` (separa markdown dos blocos
+  viz). Estendido ao Treinador (ilustra sem revelar a resposta) e ao feedback de
+  prova OBJETIVA. `INSTRUCAO_VISUAL` exportada de `tutor.ts`. Prova do aluno ganhou
+  travas anti-cópia (select-none no enunciado, onPaste bloqueado na dissertativa).
+
+- **Fase 17 — RAG por AUDIÊNCIA + assistente da equipe** (migration
+  `20260806000600`): professor/diretor escolhe quem a IA atende por documento —
+  `materiais_publico` com regras `tipo` ∈ {escola, papel(aluno/professor/gestor)}
+  (turma segue em `materiais_turmas`). `buscar_trechos` agora tem **8 args**
+  (+`p_papel` +`p_incluir_conteudo`): ramo CONTEÚDO (disciplina/ano/turma, atual)
+  OR ramo AUDIÊNCIA (papel/escola, ignora disciplina/ano). Tutor do aluno passa
+  `papel='aluno'`. **Assistente da equipe** (`/professor/assistente`,
+  `src/rag/assistenteProfessor.ts`, `incluir_conteudo=false` = só audiência) p/
+  professor+gestor (gestor='coordenador'). Upload (`GestaoMateriais`): gestor
+  escolhe audiência; API valida (só gestor define papel/escola). Módulo
+  `assistente` no registry. Aditivo/backward-compat; preserva versão vigente
+  (Fase 10). Padrão reutilizável documentado na memória do João
+  (`reference_rag_audiencia_incremental`).
+
 > **Verificação em runtime (Docker local, 06/ago):** módulos (toggle+nav),
 > materiais version-aware, Modo Treinador (loop completo com LLM real, coach
 > retém a resposta), BNCC (56 habilidades embeddadas), Responsável (login+vínculo
