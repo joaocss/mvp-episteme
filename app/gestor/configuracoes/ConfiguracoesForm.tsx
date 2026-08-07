@@ -15,6 +15,18 @@ export default function ConfiguracoesForm({ nome, logoUrl, notaMaxima, notaMinim
   const [msg, setMsg] = useState("");
   const [salvo, setSalvo] = useState(false);
 
+  // Upload de imagem -> data-URL (logos sao pequenos; evita depender de URL
+  // externa/Storage). Guarda no mesmo campo logo (data:image/...;base64,...).
+  function aoEscolherArquivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = e.target.files?.[0];
+    if (!arquivo) return;
+    if (!arquivo.type.startsWith("image/")) { setMsg("Escolha um arquivo de imagem."); return; }
+    if (arquivo.size > 400 * 1024) { setMsg("Imagem muito grande (max. 400 KB). Reduza a logo."); return; }
+    const leitor = new FileReader();
+    leitor.onload = () => { setLogo(String(leitor.result)); setMsg(""); };
+    leitor.readAsDataURL(arquivo);
+  }
+
   async function salvar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMsg(""); setSalvo(false);
@@ -33,11 +45,21 @@ export default function ConfiguracoesForm({ nome, logoUrl, notaMaxima, notaMinim
         <input value={nomeEscola} onChange={(e) => setNomeEscola(e.target.value)} required className={inp} />
       </div>
       <div>
-        <label className="block text-sm font-medium text-grafite">Logo da escola (URL da imagem)</label>
-        <input value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="https://…" className={inp} />
+        <label className="block text-sm font-medium text-grafite">Logo da escola</label>
+        <p className="mt-0.5 text-xs text-slate-500">Envie um arquivo de imagem (recomendado) ou cole a URL direta de uma imagem.</p>
+        <div className="mt-2 flex items-center gap-3">
+          <label className="cursor-pointer rounded-md border border-[#3B2C63]/30 bg-white px-3 py-2 text-sm font-medium text-[#3B2C63] hover:bg-[#3B2C63]/5">
+            Enviar imagem
+            <input type="file" accept="image/*" onChange={aoEscolherArquivo} className="hidden" />
+          </label>
+          {logo && <button type="button" onClick={() => setLogo("")} className="text-xs text-slate-500 hover:text-red-600">remover</button>}
+        </div>
+        <input value={logo.startsWith("data:") ? "" : logo} onChange={(e) => setLogo(e.target.value)}
+          placeholder="https://… (URL direta de imagem)" className={`${inp} mt-2`} />
         {logo && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logo} alt="Pré-visualização da logo" className="mt-2 h-16 w-auto rounded border border-slate-200 object-contain p-1" />
+          <img src={logo} alt="Pré-visualização da logo" className="mt-2 h-16 w-auto rounded border border-slate-200 object-contain p-1"
+            onError={() => setMsg("Nao consegui carregar essa imagem — verifique a URL ou envie um arquivo.")} />
         )}
       </div>
       <div className="grid grid-cols-2 gap-3">
