@@ -3,7 +3,7 @@
 // (410/404). Se as chaves VAPID nao estiverem configuradas, vira no-op (nao
 // quebra a app — o push simplesmente nao e enviado).
 import webpush from "web-push";
-import { inscricoesDosAlunosDaTurma, removerInscricao, type InscricaoPush } from "../bd/push";
+import { inscricoesDosAlunosDaTurma, inscricoesDoUsuario, removerInscricao, type InscricaoPush } from "../bd/push";
 
 let configurado: boolean | null = null;
 function garantirConfig(): boolean {
@@ -44,6 +44,19 @@ async function enviarParaInscricoes(inscricoes: InscricaoPush[], payload: Payloa
     }
   }));
   return enviados;
+}
+
+// Notifica um usuario especifico (best-effort; nunca lanca).
+export async function notificarUsuario(
+  escolaId: string, usuarioId: string, payload: PayloadPush,
+): Promise<number> {
+  try {
+    const inscricoes = await inscricoesDoUsuario(escolaId, usuarioId);
+    return await enviarParaInscricoes(inscricoes, payload);
+  } catch (e) {
+    console.error("[push] notificarUsuario:", e);
+    return 0;
+  }
 }
 
 // Notifica os alunos de uma turma (best-effort; nunca lanca para nao derrubar o

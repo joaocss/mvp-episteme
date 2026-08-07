@@ -133,6 +133,7 @@ export const MODULOS: Modulo[] = [
     descricao: "Lancamento de notas/faltas e dashboards de acertos por prova e por questao.",
     essencial: false,
     rotas: [
+      { rotulo: "Chamada", href: "/professor/chamada", icone: "verificado", papeis: ["professor"], ordem: 45 },
       { rotulo: "Desempenho", href: "/gestor/desempenho", icone: "desempenho", papeis: ["gestor", "admin"], ordem: 60 },
       { rotulo: "Notas e faltas", href: "/professor/desempenho", icone: "desempenho", papeis: ["professor"], ordem: 50 },
     ],
