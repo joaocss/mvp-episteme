@@ -61,6 +61,22 @@ export async function salvarChamada(
   return ausentes;
 }
 
+// Contatos do aluno para aviso (e-mail do proprio aluno + dos responsaveis).
+export async function contatosDoAluno(
+  escolaId: string, alunoId: string,
+): Promise<{ nome: string; alunoEmail: string | null; responsaveis: string[] }> {
+  const u = (await pool.query(
+    `select nome, email from usuarios where id = $2 and escola_id = $1`, [escolaId, alunoId])).rows[0];
+  const resp = await pool.query(
+    `select email from responsaveis where escola_id = $1 and aluno_id = $2 and email is not null and email <> ''`,
+    [escolaId, alunoId]);
+  return {
+    nome: u?.nome ?? "aluno",
+    alunoEmail: u?.email ?? null,
+    responsaveis: resp.rows.map((r) => r.email as string),
+  };
+}
+
 // Resumo de frequencia de um aluno (para o painel do responsavel/desempenho).
 export async function resumoFrequenciaAluno(
   escolaId: string, alunoId: string,

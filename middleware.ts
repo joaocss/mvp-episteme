@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // Rotas que exigem sessao. O RBAC por papel e validado em cada pagina/rota.
 // "/paineis" e publica de proposito: e a tela de escolha de perfil ANTES do
 // login (Fase 7), nao um painel pos-login.
-const PROTEGIDAS = ["/dashboard", "/tutor", "/api/tutor", "/professor", "/gestor", "/provas", "/api/provas", "/treinos", "/api/treino-sessao", "/responsavel"];
+const PROTEGIDAS = ["/dashboard", "/tutor", "/api/tutor", "/professor", "/gestor", "/provas", "/api/provas", "/treinos", "/api/treino-sessao", "/responsavel", "/avisos"];
 
 export function middleware(requisicao: NextRequest) {
   const temSessao = requisicao.cookies.has("sessao_aluno");
@@ -28,5 +28,6 @@ export const config = {
     "/treinos/:path*",
     "/api/treino-sessao/:path*",
     "/responsavel/:path*",
+    "/avisos/:path*",
   ],
 };

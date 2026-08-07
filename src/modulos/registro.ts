@@ -157,6 +157,16 @@ export const MODULOS: Modulo[] = [
     ],
   },
   {
+    id: "comunicacao",
+    nome: "Avisos e comunicados",
+    descricao: "Avisos da escola por audiencia (alunos/professores/gestao), com notificacao no app e e-mail.",
+    essencial: true,
+    rotas: [
+      { rotulo: "Avisos", href: "/avisos", icone: "logs", papeis: ["aluno", "professor", "responsavel"], ordem: 12 },
+      { rotulo: "Comunicados", href: "/gestor/avisos", icone: "logs", papeis: ["gestor", "admin"], ordem: 82 },
+    ],
+  },
+  {
     id: "administracao",
     nome: "Administracao da escola",
     descricao: "Configuracoes da escola e gestao dos modulos ativos.",

@@ -5,6 +5,8 @@ import {
   editarQuestao, excluirQuestao, editarProva, excluirProva, publicarProva,
 } from "../../../../src/bd/provas";
 import { gerarRascunhoProva } from "../../../../src/rag/provas";
+import { pool } from "../../../../src/bd/pool";
+import { notificarTurma } from "../../../../src/notificacoes/push";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // geracao via IA pode demorar
@@ -52,10 +54,18 @@ export async function POST(requisicao: Request) {
         await editarProva(esc, prof, d.id, d.titulo);
         break;
 
-      case "publicar":
+      case "publicar": {
         if (!d.id) return NextResponse.json({ erro: "prova não informada" }, { status: 400 });
         await publicarProva(esc, prof, d.id);
+        // Avisa a turma (push) que ha uma nova prova.
+        const pv = (await pool.query(`select turma_id, titulo from provas where id = $2 and escola_id = $1`, [esc, d.id])).rows[0];
+        if (pv?.turma_id) {
+          await notificarTurma(esc, pv.turma_id, {
+            titulo: "Nova prova disponível", corpo: pv.titulo ?? "Uma nova prova foi publicada.", url: "/provas", tag: `prova-${d.id}`,
+          });
+        }
         break;
+      }
 
       case "excluir-prova":
         if (!d.id) return NextResponse.json({ erro: "prova não informada" }, { status: 400 });
