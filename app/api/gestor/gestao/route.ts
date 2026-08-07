@@ -73,7 +73,8 @@ export async function POST(requisicao: Request) {
           enderecoFamilia: d.enderecoFamilia, estadoCivilPais: d.estadoCivilPais,
           paisMoramJuntos: d.paisMoramJuntos === undefined ? null : Boolean(d.paisMoramJuntos),
         });
-        if (d.turmaId && d.acao === "professor") await vincularProfessorTurma(esc, id, d.turmaId);
+        // Professor: o vinculo (turma + disciplina) e feito na acao "vinculo",
+        // com a disciplina escolhida do catalogo (nao mais "matematica" fixo).
         if (d.turmaId && d.acao === "aluno") await matricularAluno(esc, id, d.turmaId);
         break;
       }
@@ -110,8 +111,10 @@ export async function POST(requisicao: Request) {
         break;
 
       case "vinculo":
-        if (!d.professorId || !d.turmaId) return NextResponse.json({ erro: "selecione professor e turma" }, { status: 400 });
-        await vincularProfessorTurma(esc, d.professorId, d.turmaId, d.disciplina || "matematica");
+        if (!d.professorId || !d.turmaId || !d.disciplina) {
+          return NextResponse.json({ erro: "selecione professor, turma e disciplina" }, { status: 400 });
+        }
+        await vincularProfessorTurma(esc, d.professorId, d.turmaId, d.disciplina);
         break;
 
       case "desvincular":

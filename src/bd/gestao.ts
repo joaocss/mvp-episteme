@@ -158,13 +158,46 @@ export async function reenturmarAlunos(
 }
 
 export async function vincularProfessorTurma(
-  escolaId: string, professorId: string, turmaId: string, disciplina = "matematica",
+  escolaId: string, professorId: string, turmaId: string, disciplina: string,
 ): Promise<void> {
+  if (!disciplina) throw new Error("Informe a disciplina do vínculo.");
   await pool.query(
     `insert into professores_turmas (escola_id, professor_id, turma_id, disciplina)
      values ($1,$2,$3,$4) on conflict (professor_id, turma_id, disciplina) do nothing`,
     [escolaId, professorId, turmaId, disciplina],
   );
+}
+
+// Estrutura academica: por turma, quais disciplinas ela tem e quem leciona cada
+// uma (professores_turmas). O aluno matriculado na turma herda essas disciplinas
+// e, por consequencia, os professores. Base para o cadastro coeso.
+export interface DisciplinaDaTurma { disciplina: string; professorId: string | null; professorNome: string | null }
+export interface EstruturaTurma { turmaId: string; turma: string; serie: string; alunos: number; disciplinas: DisciplinaDaTurma[] }
+
+export async function estruturaTurmas(escolaId: string): Promise<EstruturaTurma[]> {
+  const { rows } = await pool.query(
+    `select t.id as turma_id, t.nome as turma, t.serie,
+            (select count(*) from matriculas m where m.turma_id = t.id) as alunos,
+            pt.disciplina, u.id as prof_id, u.nome as prof_nome
+     from turmas t
+     left join professores_turmas pt on pt.turma_id = t.id
+     left join usuarios u on u.id = pt.professor_id
+     where t.escola_id = $1
+     order by t.nome, pt.disciplina`,
+    [escolaId],
+  );
+  const mapa = new Map<string, EstruturaTurma>();
+  for (const r of rows) {
+    if (!mapa.has(r.turma_id)) {
+      mapa.set(r.turma_id, { turmaId: r.turma_id, turma: r.turma, serie: r.serie, alunos: Number(r.alunos) || 0, disciplinas: [] });
+    }
+    if (r.disciplina) {
+      mapa.get(r.turma_id)!.disciplinas.push({
+        disciplina: r.disciplina, professorId: r.prof_id ?? null, professorNome: r.prof_nome ?? null,
+      });
+    }
+  }
+  return [...mapa.values()];
 }
 
 export async function desvincularProfessorTurma(

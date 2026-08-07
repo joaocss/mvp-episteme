@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 interface Opcao { id: string; nome: string; }
+interface DisciplinaOpcao { id: string; nome: string; slug: string }
 
 async function enviar(dados: Record<string, unknown>): Promise<string | null> {
   const r = await fetch("/api/gestor/gestao", {
@@ -25,8 +26,21 @@ function Cartao({ titulo, children }: { titulo: string; children: React.ReactNod
 const inp = "campo";
 const btn = "btn-primario w-full";
 
-export default function FormulariosGestao({ turmas, professores }: { turmas: Opcao[]; professores: Opcao[] }) {
+export default function FormulariosGestao({ turmas, professores, disciplinas }: {
+  turmas: Opcao[]; professores: Opcao[]; disciplinas: DisciplinaOpcao[];
+}) {
   const [msg, setMsg] = useState("");
+
+  async function criarDisciplina(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setMsg("");
+    const fd = new FormData(e.currentTarget);
+    const r = await fetch("/api/gestor/disciplinas", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nome: fd.get("nome") }),
+    });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); setMsg(d.erro ?? "Erro ao criar disciplina."); return; }
+    window.location.reload();
+  }
 
   function useForm(construir: (fd: FormData) => Record<string, unknown>) {
     return async (e: React.FormEvent<HTMLFormElement>) => {
@@ -52,7 +66,19 @@ export default function FormulariosGestao({ turmas, professores }: { turmas: Opc
         </form>
       </Cartao>
 
-      <Cartao titulo="Vincular professor a turma">
+      <Cartao titulo="Nova disciplina">
+        <p className="-mt-1 text-xs text-slate-500">Serve para qualquer curso — fundamental, médio, técnico ou superior.</p>
+        <form onSubmit={criarDisciplina} className="space-y-2">
+          <input name="nome" placeholder="Ex.: Contabilidade, Biologia, Redação…" required className={inp} />
+          <button className={btn}>Criar disciplina</button>
+        </form>
+        {disciplinas.length > 0 && (
+          <p className="text-xs text-slate-500">Já cadastradas: {disciplinas.map((d) => d.nome).join(", ")}.</p>
+        )}
+      </Cartao>
+
+      <Cartao titulo="Vincular professor a disciplina da turma">
+        <p className="-mt-1 text-xs text-slate-500">O professor passa a lecionar essa disciplina na turma; os alunos da turma a herdam.</p>
         <form onSubmit={useForm((fd) => ({
           acao: "vinculo", professorId: fd.get("professorId"), turmaId: fd.get("turmaId"), disciplina: fd.get("disciplina"),
         }))} className="space-y-2">
@@ -64,24 +90,21 @@ export default function FormulariosGestao({ turmas, professores }: { turmas: Opc
             <option value="">Turma…</option>
             {turmas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
           </select>
-          <select name="disciplina" defaultValue="matematica" required className={inp}>
-            <option value="matematica">Matemática</option>
-            <option value="portugues">Língua Portuguesa</option>
-            <option value="historia">História</option>
+          <select name="disciplina" required defaultValue="" className={inp}>
+            <option value="" disabled>Disciplina…</option>
+            {disciplinas.length === 0 && <option value="" disabled>— cadastre uma disciplina primeiro —</option>}
+            {disciplinas.map((d) => <option key={d.id} value={d.slug}>{d.nome}</option>)}
           </select>
           <button className={btn}>Vincular</button>
         </form>
       </Cartao>
 
       <Cartao titulo="Novo professor">
-        <form onSubmit={useForm((fd) => ({ acao: "professor", nome: fd.get("nome"), email: fd.get("email"), senha: fd.get("senha"), turmaId: fd.get("turmaId") || undefined }))} className="space-y-2">
+        <p className="-mt-1 text-xs text-slate-500">Crie o professor e depois vincule-o às disciplinas/turmas no card ao lado. Um professor pode lecionar várias disciplinas.</p>
+        <form onSubmit={useForm((fd) => ({ acao: "professor", nome: fd.get("nome"), email: fd.get("email"), senha: fd.get("senha") }))} className="space-y-2">
           <input name="nome" placeholder="Nome" required className={inp} />
           <input name="email" type="email" placeholder="Email" required className={inp} />
           <input name="senha" type="text" placeholder="Senha inicial" required className={inp} />
-          <select name="turmaId" className={inp}>
-            <option value="">Vincular a turma (opcional)…</option>
-            {turmas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
-          </select>
           <button className={btn}>Criar professor</button>
         </form>
       </Cartao>
