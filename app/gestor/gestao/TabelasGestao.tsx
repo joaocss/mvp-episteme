@@ -4,12 +4,15 @@
 // Reaproveita a rota /api/gestor/gestao (acoes editar-*/excluir-*).
 import { Fragment, useMemo, useState } from "react";
 import { Botao } from "../../componentes/ui/Botao";
+import { Selo } from "../../componentes/ui/Selo";
+import PainelInclusao from "./PainelInclusao";
 
 interface Turma { id: string; nome: string; serie: string; anoLetivo: number; alunos: number; }
 interface Professor { id: string; nome: string; email: string; disciplinas: string | null; turmas: number; }
 interface Aluno {
   id: string; nome: string; email: string; turma: string | null; turmaId: string | null; dataNascimento: string | null;
   enderecoFamilia: string | null; estadoCivilPais: string | null; paisMoramJuntos: boolean | null;
+  atipico: boolean; observacoesAtipicidade: string | null;
 }
 interface Opcao { id: string; nome: string; }
 interface Responsavel { id: string; nome: string; parentesco: string; telefone: string | null; email: string | null; }
@@ -105,6 +108,7 @@ export default function TabelasGestao({ turmas, professores, alunos, turmasOpcoe
   const [fAluno, setFAluno] = useState("");
   const [editando, setEditando] = useState<string | null>(null);
   const [familiaAberta, setFamiliaAberta] = useState<string | null>(null);
+  const [inclusaoAberta, setInclusaoAberta] = useState<string | null>(null);
 
   const erro = (m: string) => setMsg(m);
   function excluir(dados: Record<string, unknown>, aviso: string) {
@@ -295,12 +299,17 @@ export default function TabelasGestao({ turmas, professores, alunos, turmasOpcoe
                   </tr>
                 ) : (
                   <tr key={a.id} className="border-b border-slate-100">
-                    <td className="p-3 font-medium text-grafite">{a.nome}</td>
+                    <td className="p-3 font-medium text-grafite">
+                      <span className="flex items-center gap-2">{a.nome}{a.atipico && <Selo cor="dourado">atípico</Selo>}</span>
+                    </td>
                     <td className="p-3">{a.email}</td>
                     <td className="p-3">{a.dataNascimento ? new Date(a.dataNascimento).toLocaleDateString("pt-BR") : "—"}</td>
                     <td className="p-3">{a.turma ?? "sem turma"}</td>
                     <td className="p-3">
                       <div className="flex justify-end gap-2">
+                        <Botao tamanho="pequeno" variante="secundario" onClick={() => setInclusaoAberta(inclusaoAberta === a.id ? null : a.id)}>
+                          {inclusaoAberta === a.id ? "Fechar inclusão" : "Inclusão"}
+                        </Botao>
                         <Botao tamanho="pequeno" variante="secundario" onClick={() => setFamiliaAberta(familiaAberta === a.id ? null : a.id)}>
                           {familiaAberta === a.id ? "Fechar família" : "Família"}
                         </Botao>
@@ -310,6 +319,13 @@ export default function TabelasGestao({ turmas, professores, alunos, turmasOpcoe
                           `Excluir o aluno "${a.nome}"? Conversas e histórico serão removidos.`,
                         )}>Excluir</Botao>
                       </div>
+                    </td>
+                  </tr>
+                )}
+                {inclusaoAberta === a.id && (
+                  <tr key={`${a.id}-inclusao`} className="border-b border-slate-100 bg-slate-50">
+                    <td colSpan={5} className="p-2">
+                      <PainelInclusao alunoId={a.id} atipicoInicial={a.atipico} observacoesInicial={a.observacoesAtipicidade} />
                     </td>
                   </tr>
                 )}

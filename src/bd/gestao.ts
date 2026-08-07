@@ -31,6 +31,8 @@ export interface ExtrasUsuario {
   enderecoFamilia?: string | null;
   estadoCivilPais?: string | null;
   paisMoramJuntos?: boolean | null;
+  atipico?: boolean | null;
+  observacoesAtipicidade?: string | null;
 }
 
 export async function criarUsuario(
@@ -40,10 +42,11 @@ export async function criarUsuario(
   const { rows } = await pool.query(
     `insert into usuarios
        (escola_id, papel, nome, email, senha_hash, data_nascimento, disciplinas,
-        endereco_familia, estado_civil_pais, pais_moram_juntos)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id`,
+        endereco_familia, estado_civil_pais, pais_moram_juntos, atipico, observacoes_atipicidade)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`,
     [escolaId, papel, nome, email, gerarHashSenha(senha), extras.dataNascimento || null, extras.disciplinas || null,
-     extras.enderecoFamilia || null, extras.estadoCivilPais || null, extras.paisMoramJuntos ?? null],
+     extras.enderecoFamilia || null, extras.estadoCivilPais || null, extras.paisMoramJuntos ?? null,
+     extras.atipico ?? false, extras.observacoesAtipicidade || null],
   );
   return rows[0].id;
 }
@@ -53,10 +56,12 @@ export async function editarUsuario(
 ): Promise<void> {
   await pool.query(
     `update usuarios set nome = $3, email = $4, data_nascimento = $5, disciplinas = $6,
-       endereco_familia = $7, estado_civil_pais = $8, pais_moram_juntos = $9
+       endereco_familia = $7, estado_civil_pais = $8, pais_moram_juntos = $9,
+       atipico = $10, observacoes_atipicidade = $11
      where id = $2 and escola_id = $1`,
     [escolaId, id, nome, email, extras.dataNascimento || null, extras.disciplinas || null,
-     extras.enderecoFamilia || null, extras.estadoCivilPais || null, extras.paisMoramJuntos ?? null],
+     extras.enderecoFamilia || null, extras.estadoCivilPais || null, extras.paisMoramJuntos ?? null,
+     extras.atipico ?? false, extras.observacoesAtipicidade || null],
   );
 }
 
@@ -251,11 +256,12 @@ export async function listarProfessores(escolaId: string): Promise<ProfessorList
 export interface AlunoLista {
   id: string; nome: string; email: string; turma: string | null; turmaId: string | null; dataNascimento: string | null;
   enderecoFamilia: string | null; estadoCivilPais: string | null; paisMoramJuntos: boolean | null;
+  atipico: boolean; observacoesAtipicidade: string | null;
 }
 export async function listarAlunosGeral(escolaId: string): Promise<AlunoLista[]> {
   const { rows } = await pool.query(
     `select u.id, u.nome, u.email, u.data_nascimento, u.endereco_familia, u.estado_civil_pais, u.pais_moram_juntos,
-            t.id as turma_id, t.nome as turma
+            u.atipico, u.observacoes_atipicidade, t.id as turma_id, t.nome as turma
      from usuarios u
      left join matriculas m on m.aluno_id = u.id
      left join turmas t on t.id = m.turma_id
@@ -265,5 +271,18 @@ export async function listarAlunosGeral(escolaId: string): Promise<AlunoLista[]>
     dataNascimento: r.data_nascimento ? new Date(r.data_nascimento).toISOString().slice(0, 10) : null,
     enderecoFamilia: r.endereco_familia ?? null, estadoCivilPais: r.estado_civil_pais ?? null,
     paisMoramJuntos: r.pais_moram_juntos ?? null,
+    atipico: Boolean(r.atipico), observacoesAtipicidade: r.observacoes_atipicidade ?? null,
   }));
+}
+
+// Define so a atipicidade (flag + observacoes) de um aluno, sem tocar nos demais
+// campos — usado pelo painel de inclusao.
+export async function definirAtipicidade(
+  escolaId: string, alunoId: string, atipico: boolean, observacoes: string | null,
+): Promise<void> {
+  await pool.query(
+    `update usuarios set atipico = $3, observacoes_atipicidade = $4
+     where id = $2 and escola_id = $1 and papel = 'aluno'`,
+    [escolaId, alunoId, atipico, observacoes],
+  );
 }

@@ -115,6 +115,8 @@ export default function FormulariosGestao({ turmas, professores, disciplinas }: 
           turmaId: fd.get("turmaId") || undefined, dataNascimento: fd.get("dataNascimento") || undefined,
           enderecoFamilia: fd.get("enderecoFamilia") || undefined, estadoCivilPais: fd.get("estadoCivilPais") || undefined,
           paisMoramJuntos: fd.get("paisMoramJuntos") === "" ? undefined : fd.get("paisMoramJuntos") === "sim",
+          atipico: fd.get("atipico") === "on",
+          observacoesAtipicidade: fd.get("observacoesAtipicidade") || undefined,
         }))} className="space-y-2">
           <input name="nome" placeholder="Nome" required className={inp} />
           <input name="email" type="email" placeholder="Email" required className={inp} />
@@ -139,6 +141,11 @@ export default function FormulariosGestao({ turmas, professores, disciplinas }: 
             <option value="sim">Sim</option>
             <option value="nao">Não</option>
           </select>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-grafite">
+            <input type="checkbox" name="atipico" className="h-4 w-4 accent-roxo" />
+            Aluno atípico (educação especial / neurodivergente)
+          </label>
+          <textarea name="observacoesAtipicidade" rows={2} placeholder="Observações da atipicidade (opcional) — ajuda a IA no plano inclusivo" className={`${inp} min-h-[60px]`} />
           <button className={btn}>Criar aluno</button>
         </form>
       </Cartao>

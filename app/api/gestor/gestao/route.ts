@@ -7,7 +7,7 @@ import {
   matricularAluno, definirTurmaAluno,
   vincularProfessorTurma, desvincularProfessorTurma,
   adicionarResponsavel, editarResponsavel, excluirResponsavel, listarResponsaveis,
-  definirModoEstrito, reenturmarAlunos,
+  definirModoEstrito, reenturmarAlunos, definirAtipicidade,
 } from "../../../../src/bd/gestao";
 import { registrarAuditoria } from "../../../../src/rag/repositorioConversas";
 import { randomUUID } from "node:crypto";
@@ -72,6 +72,8 @@ export async function POST(requisicao: Request) {
           dataNascimento: d.dataNascimento, disciplinas: d.disciplinas,
           enderecoFamilia: d.enderecoFamilia, estadoCivilPais: d.estadoCivilPais,
           paisMoramJuntos: d.paisMoramJuntos === undefined ? null : Boolean(d.paisMoramJuntos),
+          atipico: d.atipico === undefined ? false : Boolean(d.atipico),
+          observacoesAtipicidade: d.observacoesAtipicidade ?? null,
         });
         // Professor: o vinculo (turma + disciplina) e feito na acao "vinculo",
         // com a disciplina escolhida do catalogo (nao mais "matematica" fixo).
@@ -85,6 +87,8 @@ export async function POST(requisicao: Request) {
           dataNascimento: d.dataNascimento, disciplinas: d.disciplinas,
           enderecoFamilia: d.enderecoFamilia, estadoCivilPais: d.estadoCivilPais,
           paisMoramJuntos: d.paisMoramJuntos === undefined ? null : Boolean(d.paisMoramJuntos),
+          atipico: d.atipico === undefined ? false : Boolean(d.atipico),
+          observacoesAtipicidade: d.observacoesAtipicidade ?? null,
         });
         // Aluno pode ter a turma redefinida na edicao.
         if (d.papel === "aluno") await definirTurmaAluno(esc, d.id, d.turmaId || null);
@@ -120,6 +124,11 @@ export async function POST(requisicao: Request) {
       case "desvincular":
         if (!d.professorId || !d.turmaId) return NextResponse.json({ erro: "dados incompletos" }, { status: 400 });
         await desvincularProfessorTurma(esc, d.professorId, d.turmaId, d.disciplina || undefined);
+        break;
+
+      case "atipicidade":
+        if (!d.alunoId) return NextResponse.json({ erro: "aluno nao informado" }, { status: 400 });
+        await definirAtipicidade(esc, d.alunoId, Boolean(d.atipico), (d.observacoes ?? "").trim() || null);
         break;
 
       default:
