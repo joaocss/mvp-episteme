@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { exigirPapel } from "../../../lib/sessaoServidor";
-import { listarPlanosEnsino } from "../../../src/rag/planejamento";
+import { listarPlanosEnsino, alunosAtipicosDoProfessor } from "../../../src/rag/planejamento";
 import { LayoutApp } from "../../componentes/LayoutApp";
 import { CabecalhoPagina } from "../../componentes/ui/CabecalhoPagina";
 import { EstadoVazio } from "../../componentes/ui/EstadoVazio";
@@ -11,7 +11,10 @@ export const dynamic = "force-dynamic";
 
 export default async function PaginaPlanos() {
   const sessao = await exigirPapel(["professor"]);
-  const planos = await listarPlanosEnsino(sessao.usuarioId);
+  const [planos, atipicos] = await Promise.all([
+    listarPlanosEnsino(sessao.usuarioId),
+    alunosAtipicosDoProfessor(sessao.escolaId, sessao.usuarioId),
+  ]);
 
   return (
     <LayoutApp sessao={sessao}>
@@ -20,7 +23,7 @@ export default async function PaginaPlanos() {
         subtitulo="Gera um plano de ensino com base no material da turma, na BNCC e no perfil dos alunos (incluindo alunos atipicos)."
       />
 
-      <div className="mt-6"><GeradorPlano /></div>
+      <div className="mt-6"><GeradorPlano alunosAtipicos={atipicos} /></div>
 
       <section className="mt-10">
         <h2 className="text-lg font-semibold text-grafite">Planos salvos</h2>

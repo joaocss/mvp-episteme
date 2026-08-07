@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { exigirPapel } from "../../../../lib/sessaoServidor";
 import { obterPlanoEnsino } from "../../../../src/rag/planejamento";
+import { obterConfigEscola } from "../../../../src/bd/configEscola";
 import { LayoutApp } from "../../../componentes/LayoutApp";
+import DocumentoPlano from "./DocumentoPlano";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,15 +12,18 @@ export const dynamic = "force-dynamic";
 export default async function PaginaPlano({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const sessao = await exigirPapel(["professor"]);
-  const plano = await obterPlanoEnsino(sessao.escolaId, id);
+  const [plano, config] = await Promise.all([
+    obterPlanoEnsino(sessao.escolaId, id),
+    obterConfigEscola(sessao.escolaId),
+  ]);
   if (!plano) notFound();
 
   return (
     <LayoutApp sessao={sessao}>
-      <Link href="/professor/planos" className="text-sm text-roxo hover:underline">&larr; Voltar aos planos</Link>
-      <article className="mt-4 whitespace-pre-wrap rounded-xl border border-borda bg-superficie p-6 text-sm leading-relaxed text-grafite shadow-cartao">
-        {plano.markdown}
-      </article>
+      <Link href="/professor/planos" className="text-sm text-roxo hover:underline no-imprimir">&larr; Voltar aos planos</Link>
+      <div className="mt-3">
+        <DocumentoPlano markdown={plano.markdown} nomeEscola={config.nome} logoUrl={config.logoUrl} />
+      </div>
     </LayoutApp>
   );
 }
