@@ -118,10 +118,19 @@ export async function PATCH(requisicao: Request) {
   }
   if (Array.isArray(d.turmaIds)) {
     await definirTurmasDoMaterial(sessao.escolaId, d.materialId, d.turmaIds.map(String));
+    await registrarAuditoria(
+      sessao.escolaId, sessao.usuarioId, "material.turmas",
+      "materiais_fonte", String(d.materialId), randomUUID(),
+    );
   }
-  // Audiencias por papel/escola: so gestor/admin.
+  // Audiencias por papel/escola: so gestor/admin. Mudanca sensivel (quem a IA
+  // atende com base no doc), por isso auditada.
   if (Array.isArray(d.publicos) && (sessao.papel === "gestor" || sessao.papel === "admin")) {
     await definirPublicoDoMaterial(sessao.escolaId, d.materialId, normalizarPublicos(d.publicos));
+    await registrarAuditoria(
+      sessao.escolaId, sessao.usuarioId, "material.audiencia",
+      "materiais_fonte", String(d.materialId), randomUUID(),
+    );
   }
   return NextResponse.json({ ok: true });
 }

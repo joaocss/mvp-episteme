@@ -39,6 +39,9 @@ const rotuloPublico = (p: PublicoUI): string =>
     : p.papel === "professor" ? "Professores"
     : p.papel === "gestor" ? "Gestao"
     : p.papel === "aluno" ? "Alunos" : "Equipe";
+// Serializa uma regra na mesma chave de OPCOES_PUBLICO (p/ pre-marcar a edicao).
+const chaveDePublico = (p: PublicoUI): string =>
+  p.tipo === "escola" ? "escola" : `papel:${p.papel}`;
 
 const COR_STATUS: Record<string, CorSelo> = {
   concluido: "sucesso", processando: "aviso", pendente: "neutro", erro: "alerta",
@@ -172,16 +175,26 @@ export default function GestaoMateriais({
     if (r.ok) setMateriais((m) => m.filter((x) => x.id !== id));
   }
 
-  // ------- edicao de turmas de um material -------
+  // ------- edicao de acesso de um material (turmas + audiencia da equipe) -------
   const [editando, setEditando] = useState<string | null>(null);
   const [turmasEdit, setTurmasEdit] = useState<string[]>([]);
+  const [publicosEdit, setPublicosEdit] = useState<string[]>([]); // chaves de OPCOES_PUBLICO
   function iniciarEdicao(m: Material) {
-    setEditando(m.id); setTurmasEdit(m.turmas.map((t) => t.id));
+    setEditando(m.id);
+    setTurmasEdit(m.turmas.map((t) => t.id));
+    setPublicosEdit((m.publicos ?? []).map(chaveDePublico));
   }
-  async function salvarTurmas(id: string) {
+  async function salvarAcesso(id: string) {
+    // Gestor tambem manda as audiencias por papel/escola; professor so as turmas.
+    const corpo: { materialId: string; turmaIds: string[]; publicos?: PublicoUI[] } = {
+      materialId: id, turmaIds: turmasEdit,
+    };
+    if (ehGestor) {
+      corpo.publicos = OPCOES_PUBLICO.filter((o) => publicosEdit.includes(o.chave)).map((o) => o.regra);
+    }
     const r = await fetch("/api/materiais", {
       method: "PATCH", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ materialId: id, turmaIds: turmasEdit }),
+      body: JSON.stringify(corpo),
     });
     if (r.ok) { setEditando(null); await recarregar(); }
   }
@@ -349,6 +362,7 @@ export default function GestaoMateriais({
                     <td className="py-3 pr-3">
                       {editando === m.id ? (
                         <div className="space-y-2">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Turmas</p>
                           <div className="flex flex-wrap gap-1.5">
                             {turmas.map((t) => (
                               <ChipTurma key={t.id} pequeno ativo={turmasEdit.includes(t.id)}
@@ -356,9 +370,25 @@ export default function GestaoMateriais({
                                 {t.nome}
                               </ChipTurma>
                             ))}
+                            {turmas.length === 0 && <span className="text-xs text-slate-400">nenhuma turma</span>}
                           </div>
-                          <div className="flex gap-2">
-                            <Botao tamanho="pequeno" onClick={() => salvarTurmas(m.id)}>Salvar</Botao>
+                          {ehGestor && (
+                            <>
+                              <p className="pt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                                Audiencia da equipe
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {OPCOES_PUBLICO.map((o) => (
+                                  <ChipTurma key={o.chave} pequeno ativo={publicosEdit.includes(o.chave)}
+                                    onClick={() => setPublicosEdit((a) => a.includes(o.chave) ? a.filter((x) => x !== o.chave) : [...a, o.chave])}>
+                                    {o.rotulo}
+                                  </ChipTurma>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                          <div className="flex gap-2 pt-1">
+                            <Botao tamanho="pequeno" onClick={() => salvarAcesso(m.id)}>Salvar</Botao>
                             <Botao tamanho="pequeno" variante="secundario" onClick={() => setEditando(null)}>Cancelar</Botao>
                           </div>
                         </div>
@@ -385,7 +415,9 @@ export default function GestaoMateriais({
                           <input type="file" accept="application/pdf,.pdf" className="hidden"
                             onChange={(e) => { const f = e.target.files?.[0]; if (f) enviarRevisao(m, f); e.target.value = ""; }} />
                         </label>
-                        <Botao tamanho="pequeno" variante="secundario" onClick={() => iniciarEdicao(m)}>Turmas</Botao>
+                        <Botao tamanho="pequeno" variante="secundario" onClick={() => iniciarEdicao(m)}>
+                          {ehGestor ? "Acesso" : "Turmas"}
+                        </Botao>
                         <Botao tamanho="pequeno" variante="fantasma" className="text-alerta hover:bg-red-50"
                           onClick={() => excluir(m.id)} aria-label={`Excluir ${m.titulo}`}>
                           <Icone nome="lixeira" className="h-4 w-4" />
