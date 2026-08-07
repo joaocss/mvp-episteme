@@ -29,7 +29,11 @@ export interface Material {
 }
 
 // Opcoes de audiencia por papel/escola (so o gestor define). chave = valor serializado.
+// 'Todos os alunos' (papel aluno) atinge o tutor de todo aluno da escola,
+// ignorando turma/disciplina; difere de 'Toda a escola', que alcanca tambem
+// professores e gestao.
 const OPCOES_PUBLICO: { chave: string; rotulo: string; regra: PublicoUI }[] = [
+  { chave: "papel:aluno", rotulo: "Todos os alunos", regra: { tipo: "papel", papel: "aluno" } },
   { chave: "papel:professor", rotulo: "Todos os professores", regra: { tipo: "papel", papel: "professor" } },
   { chave: "papel:gestor", rotulo: "Gestao / Coordenacao", regra: { tipo: "papel", papel: "gestor" } },
   { chave: "escola", rotulo: "Toda a escola", regra: { tipo: "escola" } },
@@ -297,9 +301,9 @@ export default function GestaoMateriais({
 
           {ehGestor && (
             <div className="sm:col-span-2">
-              <p className="rotulo-campo mb-1.5">Audiencia da equipe (opcional)</p>
+              <p className="rotulo-campo mb-1.5">Audiencia da IA (opcional, alem das turmas)</p>
               <p className="mb-2 text-xs text-slate-400">
-                Documentos para a IA da equipe (ex.: regimento p/ toda a escola, orientacoes so p/ professores). Ignora serie/disciplina.
+                Quem a IA atende com base neste documento, ignorando serie/disciplina (ex.: guia p/ todos os alunos, regimento p/ toda a escola, orientacoes so p/ professores).
               </p>
               <div className="flex flex-wrap gap-2">
                 {OPCOES_PUBLICO.map((o) => (
@@ -375,7 +379,7 @@ export default function GestaoMateriais({
                           {ehGestor && (
                             <>
                               <p className="pt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                                Audiencia da equipe
+                                Audiencia da IA
                               </p>
                               <div className="flex flex-wrap gap-1.5">
                                 {OPCOES_PUBLICO.map((o) => (
