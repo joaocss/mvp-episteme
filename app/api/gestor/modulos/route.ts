@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
-import { lerToken } from "../../../../lib/sessao";
+import { lerSessaoPermitida } from "../../../../lib/sessao";
 import { listarEstadoModulos, definirModulo } from "../../../../src/bd/modulos";
 import { registrarAuditoria } from "../../../../src/rag/repositorioConversas";
 
@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 async function sessaoGestor() {
   const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
+  const sessao = lerSessaoPermitida((n) => armazem.get(n)?.value, ["gestor", "admin"]);
   if (!sessao || (sessao.papel !== "gestor" && sessao.papel !== "admin")) return null;
   return sessao;
 }

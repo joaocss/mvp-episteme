@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
-import { lerToken } from "../../../lib/sessao";
+import { lerSessaoPermitida } from "../../../lib/sessao";
 import { orientar, type DependenciasTreinador } from "../../../src/rag/treinador";
 import { criarEmbeddings } from "../../../src/ia/fabricaEmbeddings";
 import { criarLlm } from "../../../src/ia/fabricaLlm";
@@ -28,7 +28,7 @@ function dependencias(): DependenciasTreinador {
 
 export async function POST(requisicao: Request) {
   const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
+  const sessao = lerSessaoPermitida((n) => armazem.get(n)?.value, ["aluno"]);
   if (!sessao) return NextResponse.json({ erro: "nao autenticado" }, { status: 401 });
   if (sessao.papel !== "aluno") return NextResponse.json({ erro: "acesso restrito a alunos" }, { status: 403 });
 

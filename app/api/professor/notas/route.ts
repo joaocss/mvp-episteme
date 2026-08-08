@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { lerToken } from "../../../../lib/sessao";
+import { lerSessaoPermitida } from "../../../../lib/sessao";
 import { lancarNota, excluirNota, registrarFalta, excluirFalta, notasDaTurma, faltasDaTurma } from "../../../../src/bd/notas";
 
 export const runtime = "nodejs";
 
 export async function GET(requisicao: Request) {
   const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
+  const sessao = lerSessaoPermitida((n) => armazem.get(n)?.value, ["professor"]);
   if (!sessao || sessao.papel !== "professor") return NextResponse.json({ erro: "acesso restrito" }, { status: 403 });
   const turmaId = new URL(requisicao.url).searchParams.get("turmaId") ?? "";
   if (!turmaId) return NextResponse.json({ erro: "turma não informada" }, { status: 400 });
@@ -20,7 +20,7 @@ export async function GET(requisicao: Request) {
 
 export async function POST(requisicao: Request) {
   const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
+  const sessao = lerSessaoPermitida((n) => armazem.get(n)?.value, ["professor"]);
   if (!sessao || sessao.papel !== "professor") return NextResponse.json({ erro: "acesso restrito" }, { status: 403 });
   const d = await requisicao.json().catch(() => ({}));
   const esc = sessao.escolaId;

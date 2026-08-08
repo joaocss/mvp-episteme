@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
-import { lerToken } from "../../../lib/sessao";
+import { lerSessaoPermitida } from "../../../lib/sessao";
 import {
   criarMaterial, listarMateriais, excluirMaterial, definirTurmasDoMaterial, vincularMaterialTurma,
   materialPertenceAEscola, definirPublicoDoMaterial, type PublicoAudiencia,
@@ -20,7 +20,7 @@ const PAPEIS_OK = ["professor", "gestor", "admin"];
 const LIMITE_BYTES = 20 * 1024 * 1024; // 20 MB
 
 function sessaoValida() {
-  return cookies().then((armazem) => lerToken(armazem.get("sessao_aluno")?.value));
+  return cookies().then((armazem) => lerSessaoPermitida((n) => armazem.get(n)?.value, ["professor", "gestor", "admin"]));
 }
 
 export async function GET() {

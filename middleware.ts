@@ -6,7 +6,9 @@ import { NextResponse, type NextRequest } from "next/server";
 const PROTEGIDAS = ["/dashboard", "/tutor", "/api/tutor", "/professor", "/gestor", "/provas", "/api/provas", "/treinos", "/api/treino-sessao", "/responsavel", "/avisos"];
 
 export function middleware(requisicao: NextRequest) {
-  const temSessao = requisicao.cookies.has("sessao_aluno");
+  // Um cookie por papel (sessao_aluno/gestor/professor/responsavel/admin): basta
+  // ter qualquer sessao para passar pelo gate; o RBAC fino e por rota/pagina.
+  const temSessao = requisicao.cookies.getAll().some((c) => c.name.startsWith("sessao_"));
   const caminho = requisicao.nextUrl.pathname;
   if (!temSessao && PROTEGIDAS.some((r) => caminho.startsWith(r))) {
     const url = requisicao.nextUrl.clone();

@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
-import { lerToken } from "../../../../../lib/sessao";
+import { lerSessaoPermitida } from "../../../../../lib/sessao";
 import { listarAnexos, subirAnexo, excluirAnexo, urlAssinadaAnexo } from "../../../../../src/bd/anexos";
 import { registrarAuditoria } from "../../../../../src/rag/repositorioConversas";
 
@@ -16,7 +16,7 @@ const LIMITE_BYTES = 15 * 1024 * 1024; // 15 MB por anexo
 
 async function sessaoOk() {
   const armazem = await cookies();
-  const s = lerToken(armazem.get("sessao_aluno")?.value);
+  const s = lerSessaoPermitida((n) => armazem.get(n)?.value, PAPEIS_OK);
   return s && PAPEIS_OK.includes(s.papel) ? s : null;
 }
 

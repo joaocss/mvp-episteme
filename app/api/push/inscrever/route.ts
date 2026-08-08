@@ -1,14 +1,14 @@
 // Registra a inscricao de Web Push do navegador do usuario logado.
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { lerToken } from "../../../../lib/sessao";
+import { lerSessaoPermitida, PAPEIS_SESSAO } from "../../../../lib/sessao";
 import { salvarInscricao } from "../../../../src/bd/push";
 
 export const runtime = "nodejs";
 
 export async function POST(requisicao: Request) {
   const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
+  const sessao = lerSessaoPermitida((n) => armazem.get(n)?.value, PAPEIS_SESSAO);
   if (!sessao) return NextResponse.json({ erro: "nao autenticado" }, { status: 401 });
 
   const d = await requisicao.json().catch(() => ({}));

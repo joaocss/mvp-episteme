@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
-import { lerToken } from "../../../../lib/sessao";
+import { lerSessaoPermitida } from "../../../../lib/sessao";
 import { obterUsuarioBasico } from "../../../../src/bd/usuarios";
 import { filhosDoResponsavel } from "../../../../src/bd/responsavel";
 import { termoVigente, registrarConsentimento } from "../../../../src/bd/consentimento";
@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 
 export async function POST(requisicao: Request) {
   const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
+  const sessao = lerSessaoPermitida((n) => armazem.get(n)?.value, ["responsavel"]);
   if (!sessao || sessao.papel !== "responsavel") {
     return NextResponse.json({ erro: "acesso restrito" }, { status: 403 });
   }

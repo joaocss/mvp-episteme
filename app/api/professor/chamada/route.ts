@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
-import { lerToken } from "../../../../lib/sessao";
+import { lerSessaoPermitida } from "../../../../lib/sessao";
 import { pool } from "../../../../src/bd/pool";
 import { alunosDaTurma, obterChamada, salvarChamada, type ItemChamada } from "../../../../src/bd/frequencia";
 import { registrarAuditoria } from "../../../../src/rag/repositorioConversas";
@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 
 async function sessaoEquipe() {
   const armazem = await cookies();
-  const s = lerToken(armazem.get("sessao_aluno")?.value);
+  const s = lerSessaoPermitida((n) => armazem.get(n)?.value, ["professor", "gestor", "admin"]);
   return s && ["professor", "gestor", "admin"].includes(s.papel) ? s : null;
 }
 

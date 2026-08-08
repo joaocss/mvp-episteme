@@ -3,13 +3,13 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { listarDisciplinas, criarDisciplina, editarDisciplina, excluirDisciplina } from "../../../../src/bd/disciplinas";
-import { lerToken } from "../../../../lib/sessao";
+import { lerSessaoPermitida } from "../../../../lib/sessao";
 
 export const runtime = "nodejs";
 
 async function sessaoValida() {
   const armazem = await cookies();
-  return lerToken(armazem.get("sessao_aluno")?.value);
+  return lerSessaoPermitida((n) => armazem.get(n)?.value, ["gestor", "admin"]);
 }
 
 export async function GET() {

@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
-import { lerToken } from "../../../../lib/sessao";
+import { lerSessaoPermitida } from "../../../../lib/sessao";
 import { responderAssistente, type DependenciasAssistente } from "../../../../src/rag/assistenteProfessor";
 import { criarEmbeddings } from "../../../../src/ia/fabricaEmbeddings";
 import { criarLlm } from "../../../../src/ia/fabricaLlm";
@@ -22,7 +22,7 @@ function dependencias(): DependenciasAssistente {
 
 export async function POST(requisicao: Request) {
   const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
+  const sessao = lerSessaoPermitida((n) => armazem.get(n)?.value, ["professor", "gestor", "admin"]);
   if (!sessao || !["professor", "gestor", "admin"].includes(sessao.papel)) {
     return NextResponse.json({ erro: "acesso restrito" }, { status: 403 });
   }

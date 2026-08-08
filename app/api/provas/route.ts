@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { lerToken } from "../../../lib/sessao";
+import { lerSessaoPermitida } from "../../../lib/sessao";
 import {
   listarProvasDisponiveis, proximaQuestao, registrarResposta, consultarGabarito, resultadoProva,
 } from "../../../src/bd/provas";
@@ -13,7 +13,7 @@ export const maxDuration = 60; // feedback/correcao via IA pode demorar
 
 export async function GET() {
   const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
+  const sessao = lerSessaoPermitida((n) => armazem.get(n)?.value, ["aluno"]);
   if (!sessao || sessao.papel !== "aluno") return NextResponse.json({ erro: "acesso restrito" }, { status: 403 });
 
   const provas = await listarProvasDisponiveis(sessao.escolaId, sessao.usuarioId);
@@ -22,7 +22,7 @@ export async function GET() {
 
 export async function POST(requisicao: Request) {
   const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
+  const sessao = lerSessaoPermitida((n) => armazem.get(n)?.value, ["aluno"]);
   if (!sessao || sessao.papel !== "aluno") return NextResponse.json({ erro: "acesso restrito" }, { status: 403 });
 
   const d = await requisicao.json().catch(() => ({}));

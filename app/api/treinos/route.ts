@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
-import { lerToken } from "../../../lib/sessao";
+import { lerSessaoPermitida } from "../../../lib/sessao";
 import {
   criarTreino, listarTreinosDoProfessor, definirStatusTreino, excluirTreino,
   turmasDisciplinasDoProfessor, obterTreinoDoProfessor, type StatusTreino,
@@ -18,7 +18,7 @@ const PAPEIS_OK = ["professor", "admin"];
 
 async function sessaoProfessor() {
   const armazem = await cookies();
-  const s = lerToken(armazem.get("sessao_aluno")?.value);
+  const s = lerSessaoPermitida((n) => armazem.get(n)?.value, PAPEIS_OK);
   return s && PAPEIS_OK.includes(s.papel) ? s : null;
 }
 

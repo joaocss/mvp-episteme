@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
-import { lerToken } from "../../../../lib/sessao";
+import { lerSessaoPermitida } from "../../../../lib/sessao";
 import { criarAviso, listarAvisosDaEscola, excluirAviso, type PapelAudiencia } from "../../../../src/bd/avisos";
 import { notificarAviso } from "../../../../src/notificacoes/avisos";
 import { registrarAuditoria } from "../../../../src/rag/repositorioConversas";
@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 async function sessaoGestor() {
   const armazem = await cookies();
-  const s = lerToken(armazem.get("sessao_aluno")?.value);
+  const s = lerSessaoPermitida((n) => armazem.get(n)?.value, ["gestor", "admin"]);
   return s && (s.papel === "gestor" || s.papel === "admin") ? s : null;
 }
 

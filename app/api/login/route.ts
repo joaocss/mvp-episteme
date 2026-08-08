@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { buscarUsuarioPorEmail } from "../../../src/bd/alunos";
 import { verificarSenha } from "../../../lib/senha";
-import { criarToken } from "../../../lib/sessao";
+import { criarToken, nomeCookieSessao } from "../../../lib/sessao";
 
 export const runtime = "nodejs";
 
@@ -16,7 +16,7 @@ export async function POST(requisicao: Request) {
   }
   const resposta = NextResponse.json({ ok: true, papel: usuario.papel, nome: usuario.nome });
   resposta.cookies.set(
-    "sessao_aluno",
+    nomeCookieSessao(usuario.papel),
     criarToken({ usuarioId: usuario.id, escolaId: usuario.escolaId, papel: usuario.papel }),
     {
       httpOnly: true,

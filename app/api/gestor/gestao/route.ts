@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { lerToken } from "../../../../lib/sessao";
+import { lerSessaoPermitida } from "../../../../lib/sessao";
 import {
   criarTurma, editarTurma, excluirTurma,
   criarUsuario, editarUsuario, excluirUsuario,
@@ -16,7 +16,7 @@ export const runtime = "nodejs";
 
 export async function GET(requisicao: Request) {
   const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
+  const sessao = lerSessaoPermitida((n) => armazem.get(n)?.value, ["gestor", "admin"]);
   if (!sessao || (sessao.papel !== "gestor" && sessao.papel !== "admin")) {
     return NextResponse.json({ erro: "acesso restrito" }, { status: 403 });
   }
@@ -28,7 +28,7 @@ export async function GET(requisicao: Request) {
 
 export async function POST(requisicao: Request) {
   const armazem = await cookies();
-  const sessao = lerToken(armazem.get("sessao_aluno")?.value);
+  const sessao = lerSessaoPermitida((n) => armazem.get(n)?.value, ["gestor", "admin"]);
   if (!sessao || (sessao.papel !== "gestor" && sessao.papel !== "admin")) {
     return NextResponse.json({ erro: "acesso restrito" }, { status: 403 });
   }
