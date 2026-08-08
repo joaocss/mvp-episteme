@@ -36,15 +36,18 @@ export interface ExtrasUsuario {
 }
 
 export async function criarUsuario(
-  escolaId: string, papel: "professor" | "aluno", nome: string, email: string, senha: string,
-  extras: ExtrasUsuario = {},
+  escolaId: string, papel: "professor" | "aluno", nome: string, email: string,
+  senha: string | null, extras: ExtrasUsuario = {},
 ): Promise<string> {
+  // senha null/vazia => senha_hash null: o usuario nao loga ate definir a senha
+  // pelo link de convite (substitui a senha fixa do piloto).
+  const hash = senha ? gerarHashSenha(senha) : null;
   const { rows } = await pool.query(
     `insert into usuarios
        (escola_id, papel, nome, email, senha_hash, data_nascimento, disciplinas,
         endereco_familia, estado_civil_pais, pais_moram_juntos, atipico, observacoes_atipicidade)
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`,
-    [escolaId, papel, nome, email, gerarHashSenha(senha), extras.dataNascimento || null, extras.disciplinas || null,
+    [escolaId, papel, nome, email, hash, extras.dataNascimento || null, extras.disciplinas || null,
      extras.enderecoFamilia || null, extras.estadoCivilPais || null, extras.paisMoramJuntos ?? null,
      extras.atipico ?? false, extras.observacoesAtipicidade || null],
   );

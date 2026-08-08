@@ -4,14 +4,17 @@
 //   nome (obrigatorio), email, senha, turma (nome da turma), data_nascimento.
 import { pool } from "./pool";
 import { criarUsuario, matricularAluno } from "./gestao";
+import { criarTokenSenha } from "./tokensSenha";
+import { enviarConviteSenha } from "../notificacoes/senha";
 
 export interface ResultadoImport {
   criados: number;
   erros: { linha: number; motivo: string }[];
-  senhaPadraoUsada: boolean;
+  // Convites gerados para alunos sem senha na planilha (link para definir a
+  // propria senha). O email e enviado se houver Resend; o link volta aqui para
+  // o gestor compartilhar manualmente enquanto o email nao esta configurado.
+  convites: { nome: string; email: string; link: string }[];
 }
-
-const SENHA_PADRAO = "episteme123"; // piloto: aluno sem senha na planilha recebe esta (trocar antes de dados reais)
 
 // Detecta o delimitador dominante na primeira linha (; tem prioridade, padrao BR/Excel).
 function detectarDelimitador(cabecalho: string): string {
@@ -52,11 +55,13 @@ function normalizarCabecalho(h: string): string {
   return h.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/\s+/g, "_");
 }
 
-export async function importarAlunosCsv(escolaId: string, conteudo: string): Promise<ResultadoImport> {
+export async function importarAlunosCsv(
+  escolaId: string, conteudo: string, baseUrl = "",
+): Promise<ResultadoImport> {
   const primeiraLinha = conteudo.split(/\r?\n/)[0] ?? "";
   const delim = detectarDelimitador(primeiraLinha);
   const linhas = parsearCsv(conteudo, delim);
-  if (linhas.length < 2) return { criados: 0, erros: [{ linha: 0, motivo: "planilha vazia ou sem dados" }], senhaPadraoUsada: false };
+  if (linhas.length < 2) return { criados: 0, erros: [{ linha: 0, motivo: "planilha vazia ou sem dados" }], convites: [] };
 
   const cabecalho = linhas[0].map(normalizarCabecalho);
   const idx = (nome: string) => cabecalho.indexOf(nome);
@@ -65,23 +70,22 @@ export async function importarAlunosCsv(escolaId: string, conteudo: string): Pro
   const iSenha = idx("senha");
   const iTurma = idx("turma");
   const iNasc = iNome >= 0 ? (idx("data_de_nascimento") >= 0 ? idx("data_de_nascimento") : idx("data_nascimento")) : -1;
-  if (iNome < 0) return { criados: 0, erros: [{ linha: 1, motivo: "falta a coluna 'nome' no cabecalho" }], senhaPadraoUsada: false };
+  if (iNome < 0) return { criados: 0, erros: [{ linha: 1, motivo: "falta a coluna 'nome' no cabecalho" }], convites: [] };
 
   // Mapa nome-da-turma -> id (case-insensitive), para matricular por nome.
   const { rows: turmas } = await pool.query(`select id, nome from turmas where escola_id = $1`, [escolaId]);
   const mapaTurma = new Map<string, string>(turmas.map((t: any) => [String(t.nome).toLowerCase().trim(), t.id]));
 
   const erros: ResultadoImport["erros"] = [];
+  const convites: ResultadoImport["convites"] = [];
   let criados = 0;
-  let senhaPadraoUsada = false;
 
   for (let i = 1; i < linhas.length; i++) {
     const l = linhas[i];
     const nome = (l[iNome] ?? "").trim();
     if (!nome) { erros.push({ linha: i + 1, motivo: "nome vazio" }); continue; }
     const email = iEmail >= 0 ? (l[iEmail] ?? "").trim() : "";
-    let senha = iSenha >= 0 ? (l[iSenha] ?? "").trim() : "";
-    if (!senha) { senha = SENHA_PADRAO; senhaPadraoUsada = true; }
+    const senha = iSenha >= 0 ? (l[iSenha] ?? "").trim() : "";
     const nomeTurma = iTurma >= 0 ? (l[iTurma] ?? "").trim() : "";
     const dataNasc = iNasc >= 0 ? (l[iNasc] ?? "").trim() : "";
 
@@ -91,15 +95,24 @@ export async function importarAlunosCsv(escolaId: string, conteudo: string): Pro
       if (!turmaId) { erros.push({ linha: i + 1, motivo: `turma "${nomeTurma}" nao encontrada` }); continue; }
     }
     try {
-      const alunoId = await criarUsuario(escolaId, "aluno", nome, email, senha, {
+      // Sem senha na planilha => cria SEM senha e gera convite (o aluno/pai
+      // define a propria). Com senha => cria com ela (compat).
+      const alunoId = await criarUsuario(escolaId, "aluno", nome, email, senha || null, {
         dataNascimento: dataNasc || null,
       });
       if (turmaId) await matricularAluno(escolaId, alunoId, turmaId);
       criados++;
+
+      if (!senha) {
+        const token = await criarTokenSenha(escolaId, alunoId, "convite");
+        const link = `${baseUrl}/definir-senha?token=${token}`;
+        if (email) await enviarConviteSenha(email, nome, link);
+        convites.push({ nome, email, link });
+      }
     } catch (e: any) {
       const dup = /duplicate key|unique/i.test(String(e?.message));
       erros.push({ linha: i + 1, motivo: dup ? "email ja cadastrado" : "falha ao criar" });
     }
   }
-  return { criados, erros, senhaPadraoUsada };
+  return { criados, erros, convites };
 }

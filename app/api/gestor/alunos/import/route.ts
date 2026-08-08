@@ -25,7 +25,8 @@ export async function POST(requisicao: Request) {
   if (arquivo.size > 5 * 1024 * 1024) return NextResponse.json({ erro: "arquivo acima de 5 MB" }, { status: 400 });
 
   const conteudo = await arquivo.text();
-  const resultado = await importarAlunosCsv(sessao.escolaId, conteudo);
+  const origem = new URL(requisicao.url).origin;
+  const resultado = await importarAlunosCsv(sessao.escolaId, conteudo, origem);
   await registrarAuditoria(sessao.escolaId, sessao.usuarioId, `aluno.importar(${resultado.criados})`, "usuarios", null, randomUUID())
     .catch(() => {});
   return NextResponse.json({ ok: true, ...resultado });
