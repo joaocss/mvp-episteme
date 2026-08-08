@@ -42,15 +42,32 @@ export function rotuloDisciplina(disciplina: string): string {
 // desenha (DiagramaEpisteme). O modelo nao gera imagem (erraria matematica):
 // so descreve o que ilustrar num bloco ```viz {json}```.
 export const INSTRUCAO_VISUAL =
-  "APOIO VISUAL: quando um desenho ajudar a entender (sobretudo em matematica e " +
-  "para series iniciais), inclua no meio da explicacao um DIAGRAMA, escrevendo um " +
-  "bloco de codigo com a linguagem `viz` e um JSON valido (aspas duplas). Tipos:\n" +
-  '- Reta numerica: ```viz\\n{"tipo":"reta_numerica","de":0,"ate":10,"marcar":[3],"titulo":"..."}\\n```\n' +
-  '- Fracao: ```viz\\n{"tipo":"fracao","numerador":1,"denominador":2,"forma":"barra","titulo":"..."}\\n``` (forma: "barra" ou "pizza")\n' +
+  "APOIO VISUAL (importante para a didatica): sempre que um desenho tornar a ideia mais " +
+  "concreta, inclua no meio da explicacao um DIAGRAMA, escrevendo um bloco de codigo com " +
+  "a linguagem `viz` e um JSON valido (aspas duplas). Voce NAO desenha a imagem: apenas " +
+  "descreve o diagrama e o app o renderiza sempre correto. Escolha o tipo que combina com " +
+  "a materia e a pergunta, e mantenha os rotulos CURTOS.\n\n" +
+  "MATEMATICA:\n" +
+  '- Reta numerica (use \"saltos\" para mostrar somar/subtrair): ```viz\\n{"tipo":"reta_numerica","de":0,"ate":10,"marcar":[7],"saltos":[{"de":0,"ate":7,"rotulo":"+7"}]}\\n```\n' +
+  '- Fracao: ```viz\\n{"tipo":"fracao","numerador":3,"denominador":4,"forma":"pizza"}\\n``` (forma "barra"/"pizza"; para comparar, use 2 blocos)\n' +
   '- Agrupamento (contar/multiplicar/dividir): ```viz\\n{"tipo":"grupos","total":12,"porGrupo":3,"emoji":"🍎"}\\n```\n' +
-  '- Barras: ```viz\\n{"tipo":"barras","dados":[{"rotulo":"A","valor":3}],"titulo":"..."}\\n```\n' +
-  "Use no maximo 1 ou 2 diagramas por resposta, so quando ajudarem de verdade. Nao " +
-  "comente o bloco viz em si — apenas insira-o onde o desenho faz sentido.";
+  '- Modelo de area/matriz (multiplicacao, area): ```viz\\n{"tipo":"area_modelo","linhas":3,"colunas":5}\\n```\n' +
+  '- Valor posicional (unidade/dezena/centena): ```viz\\n{"tipo":"valor_posicional","numero":234}\\n```\n' +
+  '- Figura geometrica com medidas: ```viz\\n{"tipo":"figura_geometrica","figura":"retangulo","largura":5,"altura":3}\\n``` (figura: retangulo/quadrado/triangulo; no triangulo use "base" e "altura")\n' +
+  '- Plano cartesiano: ```viz\\n{"tipo":"plano_cartesiano","de":-5,"ate":5,"pontos":[{"x":2,"y":3,"rotulo":"A"}],"ligar":false}\\n```\n' +
+  '- Grafico de barras (dados): ```viz\\n{"tipo":"barras","dados":[{"rotulo":"Seg","valor":3}]}\\n```\n\n' +
+  "CIENCIAS / PROCESSOS:\n" +
+  '- Ciclo (agua, vida, etapas que se repetem): ```viz\\n{"tipo":"ciclo","passos":["Evaporacao","Condensacao","Precipitacao"]}\\n```\n' +
+  '- Passo a passo (sequencia, experimento): ```viz\\n{"tipo":"passos","passos":["Primeiro...","Depois..."]}\\n```\n' +
+  '- Mapa conceitual (um tema e suas partes): ```viz\\n{"tipo":"mapa_conceitual","centro":"Seres vivos","ramos":["Plantas","Animais","Fungos"]}\\n```\n\n' +
+  "HISTORIA / GERAIS:\n" +
+  '- Linha do tempo: ```viz\\n{"tipo":"linha_do_tempo","eventos":[{"ano":1500,"rotulo":"Chegada ao Brasil"},{"ano":1822,"rotulo":"Independencia"}]}\\n```\n' +
+  '- Tabela: ```viz\\n{"tipo":"tabela","cabecalho":["Coluna 1","Coluna 2"],"celulas":[["a","b"],["c","d"]]}\\n```\n' +
+  '- Comparacao lado a lado: ```viz\\n{"tipo":"comparacao","tituloA":"Semelhancas","itensA":["..."],"tituloB":"Diferencas","itensB":["..."]}\\n```\n' +
+  '- Diagrama de Venn (2 conjuntos): ```viz\\n{"tipo":"venn","a":"Mamiferos","b":"Aquaticos","apenasA":"gato","apenasB":"peixe","ambos":"baleia"}\\n```\n\n' +
+  "REGRAS: 1 ou 2 diagramas por resposta, so quando ajudarem de verdade; prefira o tipo " +
+  "mais especifico da materia; rotulos curtos; e NAO comente o bloco viz, apenas insira-o " +
+  "onde o desenho esclarece.";
 
 // Parceira cognitiva (alinhado ao ensaio sobre regressao cognitiva): o tutor e o
 // ANDAIME, nao a muleta. Faz o aluno pensar, da pistas antes da resposta, e apoia
