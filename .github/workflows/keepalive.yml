@@ -1,0 +1,27 @@
+name: keep-alive
+
+# Bate no /api/health uma vez por dia para o Supabase Free nao pausar por
+# inatividade (a pausa dispara com ~7 dias sem requisicao). Quando o dominio
+# custom estiver ativo, defina a variavel de repositorio HEALTH_URL para
+# https://app.meuepisteme.com.br/api/health (Settings > Secrets and variables >
+# Actions > Variables). Sem a variavel, usa a URL atual da Vercel.
+#
+# Observacao: para keep-alive + ALERTA de queda, um UptimeRobot (gratis, ping a
+# cada 5 min) e mais robusto que o cron do GitHub. Este workflow e o fallback
+# versionado que funciona sem conta externa.
+
+on:
+  schedule:
+    - cron: "17 9 * * *"   # todo dia ~09:17 UTC
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        env:
+          URL: ${{ vars.HEALTH_URL || 'https://mvp-episteme-nu8r.vercel.app/api/health' }}
+        run: |
+          echo "Pinging $URL"
+          curl -fsS --max-time 30 "$URL"
