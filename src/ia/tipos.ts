@@ -21,6 +21,15 @@ export interface ProvedorLlm {
   // imagemBase64: data URL (ex.: "data:image/png;base64,...") de uma foto enviada
   // pelo aluno junto da pergunta. Provedores sem suporte a visao podem ignorar.
   gerar(prompt: string, opcoes?: { maxTokens?: number; imagemBase64?: string }): Promise<RespostaLlm>;
+  // Opcional: geracao em streaming. Invoca aoReceber(delta) a cada pedaco de
+  // texto recebido e resolve com a resposta final (texto completo + telemetria).
+  // Se o provedor nao implementar, o chamador usa gerar() e emite o texto de uma
+  // vez so (degrada sem quebrar).
+  gerarStream?(
+    prompt: string,
+    aoReceber: (delta: string) => void,
+    opcoes?: { maxTokens?: number; imagemBase64?: string },
+  ): Promise<RespostaLlm>;
 }
 
 export interface TrechoRecuperado {

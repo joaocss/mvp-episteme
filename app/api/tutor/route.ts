@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
-import { responder, Dependencias } from "../../../src/rag/tutor";
+import { prepararResposta, montarResultado, Dependencias } from "../../../src/rag/tutor";
 import { criarEmbeddings } from "../../../src/ia/fabricaEmbeddings";
 import { criarLlm } from "../../../src/ia/fabricaLlm";
 import { RepositorioPostgres } from "../../../src/rag/repositorioPostgres";
@@ -13,7 +13,9 @@ import {
 import { turmaDoAluno } from "../../../src/bd/aluno";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+// Streaming: a conexao fica aberta durante a geracao. 60s cobre respostas longas
+// com folga (geracao observada ~15-20s). Em Vercel Pro pode subir se preciso.
+export const maxDuration = 60;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -98,34 +100,72 @@ export async function POST(requisicao: Request) {
     console.error("[persist pergunta]", e);
   }
 
-  // Pipeline de RAG.
-  const inicio = Date.now();
-  let resultado;
-  try {
-    resultado = await responder(escolaId, pergunta.trim(), obterDependencias(), historico, imagemBase64, disciplina, serie, opcoesTurma);
-  } catch (e) {
-    console.error("[tutor]", e);
-    return NextResponse.json({ erro: "falha ao processar" }, { status: 500 });
-  }
-  const latenciaMs = Date.now() - inicio;
+  // Pipeline de RAG em STREAMING (NDJSON): { d: "<delta>" } por pedaco de texto
+  // e um frame final { done: true, ...resultado } com metadados (fontes, origem,
+  // sessao). O front mostra o texto crescendo e finaliza o render rico no done.
+  const dep = obterDependencias();
+  const codificador = new TextEncoder();
+  const fluxo = new ReadableStream<Uint8Array>({
+    async start(controlador) {
+      const enviar = (obj: unknown) => controlador.enqueue(codificador.encode(JSON.stringify(obj) + "\n"));
+      const inicio = Date.now();
+      try {
+        const prep = await prepararResposta(
+          escolaId, pergunta.trim(), dep, historico, imagemBase64, disciplina, serie, opcoesTurma,
+        );
 
-  // Persistencia da resposta e da telemetria (best-effort).
-  try {
-    await registrarGuardrails(escolaId, interacaoAluno, resultado.eventos, traceId);
-    const conteudoIa = resultado.recusado
-      ? (resultado.motivo ?? "recusado")
-      : (resultado.resposta ?? "");
-    const interacaoIa = await registrarInteracao({
-      escolaId, sessaoId, autor: "ia", conteudo: conteudoIa,
-      modelo: resultado.telemetria.modelo, tokensEntrada: resultado.telemetria.tokensEntrada,
-      tokensSaida: resultado.telemetria.tokensSaida, latenciaMs, competenciaBncc: resultado.competenciaBncc, traceId,
-    });
-    if (!resultado.recusado && resultado.fontes.length) {
-      await registrarFontes(escolaId, interacaoIa, resultado.fontes);
-    }
-  } catch (e) {
-    console.error("[persist resposta]", e);
-  }
+        let resultado;
+        if (prep.modo === "terminal") {
+          // Recusa ou pedido de formato: mostra o texto de imediato (um pedaco).
+          resultado = prep.resultado;
+          if (resultado.resposta) enviar({ d: resultado.resposta });
+        } else if (dep.llm.gerarStream) {
+          const saidaLlm = await dep.llm.gerarStream(
+            prep.prompt,
+            (delta) => enviar({ d: delta }),
+            { maxTokens: prep.maxTokens, imagemBase64: prep.imagemBase64 },
+          );
+          resultado = montarResultado(prep, saidaLlm);
+        } else {
+          // Provedor sem streaming: gera de uma vez e emite o texto inteiro.
+          const saidaLlm = await dep.llm.gerar(prep.prompt, { maxTokens: prep.maxTokens, imagemBase64: prep.imagemBase64 });
+          enviar({ d: saidaLlm.texto });
+          resultado = montarResultado(prep, saidaLlm);
+        }
 
-  return NextResponse.json({ ...resultado, sessaoId, traceId, disciplina, serie });
+        const latenciaMs = Date.now() - inicio;
+
+        // Persistencia da resposta e da telemetria (best-effort) antes do frame final.
+        try {
+          await registrarGuardrails(escolaId, interacaoAluno, resultado.eventos, traceId);
+          const conteudoIa = resultado.recusado ? (resultado.motivo ?? "recusado") : (resultado.resposta ?? "");
+          const interacaoIa = await registrarInteracao({
+            escolaId, sessaoId, autor: "ia", conteudo: conteudoIa,
+            modelo: resultado.telemetria.modelo, tokensEntrada: resultado.telemetria.tokensEntrada,
+            tokensSaida: resultado.telemetria.tokensSaida, latenciaMs, competenciaBncc: resultado.competenciaBncc, traceId,
+          });
+          if (!resultado.recusado && resultado.fontes.length) {
+            await registrarFontes(escolaId, interacaoIa, resultado.fontes);
+          }
+        } catch (e) {
+          console.error("[persist resposta]", e);
+        }
+
+        enviar({ done: true, ...resultado, sessaoId, traceId, disciplina, serie });
+      } catch (e) {
+        console.error("[tutor]", e);
+        enviar({ erro: "falha ao processar" });
+      } finally {
+        controlador.close();
+      }
+    },
+  });
+
+  return new Response(fluxo, {
+    headers: {
+      "content-type": "application/x-ndjson; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      "x-accel-buffering": "no",
+    },
+  });
 }

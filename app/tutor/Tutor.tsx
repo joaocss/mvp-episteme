@@ -10,6 +10,7 @@ interface Mensagem {
   opcoes?: string[];
   origemResposta?: "livro" | "bncc" | "conhecimento_geral" | "imagem";
   imagemPreview?: string;
+  emStream?: boolean; // texto ainda chegando (render simples + cursor)
 }
 
 const RotuloOrigem: Record<string, string> = {
@@ -85,11 +86,27 @@ export default function Tutor() {
 
   function novaConversa() { setMensagens([]); setSessaoId(null); setPergunta(""); setTemaQuestoes(""); }
 
+  // Atualiza a ULTIMA mensagem da lista (a bolha do tutor em andamento). Como so
+  // ha um envio por vez (trava `carregando`), a ultima mensagem e sempre a nossa.
+  function atualizarUltima(patch: Partial<Mensagem>) {
+    setMensagens((atual) => {
+      if (!atual.length) return atual;
+      const copia = atual.slice();
+      copia[copia.length - 1] = { ...copia[copia.length - 1], ...patch };
+      return copia;
+    });
+  }
+
   async function enviarPergunta(texto: string) {
     const limpo = texto.trim();
     if (!limpo || carregando) return;
     const imagemEnviada = imagem;
-    setMensagens((atual) => [...atual, { autor: "aluno", texto: limpo, imagemPreview: imagemEnviada ?? undefined }]);
+    // Bolha do aluno + placeholder do tutor (vazio, em streaming).
+    setMensagens((atual) => [
+      ...atual,
+      { autor: "aluno", texto: limpo, imagemPreview: imagemEnviada ?? undefined },
+      { autor: "tutor", texto: "", emStream: true },
+    ]);
     setPergunta("");
     setImagem(null);
     setCarregando(true);
@@ -99,19 +116,51 @@ export default function Tutor() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ pergunta: limpo, sessaoId, imagemBase64: imagemEnviada ?? undefined, disciplina }),
       });
-      const dados = await resposta.json();
-      if (dados.sessaoId) setSessaoId(dados.sessaoId);
-      if (dados.disciplina) setDisciplina(dados.disciplina);
-      if (dados.tema) setTemaQuestoes(dados.tema);
-      setMensagens((atual) => [...atual, {
-        autor: "tutor",
-        texto: dados.resposta ?? "Nao consegui responder agora.",
-        opcoes: dados.opcoes,
-        origemResposta: dados.origemResposta,
-      }]);
+      if (!resposta.ok || !resposta.body) {
+        atualizarUltima({ texto: "Nao consegui responder agora.", emStream: false });
+        return;
+      }
+      // Le o fluxo NDJSON: cada linha e { d } (pedaco), { done, ... } ou { erro }.
+      const leitor = resposta.body.getReader();
+      const decodificador = new TextDecoder();
+      let buffer = "";
+      let acumulado = "";
+      for (;;) {
+        const { done, value } = await leitor.read();
+        if (done) break;
+        buffer += decodificador.decode(value, { stream: true });
+        let quebra: number;
+        while ((quebra = buffer.indexOf("\n")) >= 0) {
+          const linha = buffer.slice(0, quebra).trim();
+          buffer = buffer.slice(quebra + 1);
+          if (!linha) continue;
+          let msg: {
+            d?: string; done?: boolean; erro?: string; resposta?: string;
+            opcoes?: string[]; origemResposta?: Mensagem["origemResposta"];
+            sessaoId?: string; disciplina?: string; tema?: string;
+          };
+          try { msg = JSON.parse(linha); } catch { continue; }
+          if (msg.erro) {
+            atualizarUltima({ texto: "Nao consegui responder agora.", emStream: false });
+          } else if (msg.d) {
+            acumulado += msg.d;
+            atualizarUltima({ texto: acumulado });
+          } else if (msg.done) {
+            if (msg.sessaoId) setSessaoId(msg.sessaoId);
+            if (msg.disciplina) setDisciplina(msg.disciplina);
+            if (msg.tema) setTemaQuestoes(msg.tema);
+            atualizarUltima({
+              texto: msg.resposta ?? acumulado, // texto ja com guardrail de saida
+              opcoes: msg.opcoes,
+              origemResposta: msg.origemResposta,
+              emStream: false,
+            });
+          }
+        }
+      }
       carregarHistorico();
     } catch {
-      setMensagens((atual) => [...atual, { autor: "tutor", texto: "Tive um problema para responder. Tente novamente." }]);
+      atualizarUltima({ texto: "Tive um problema para responder. Tente novamente.", emStream: false });
     } finally {
       setCarregando(false);
     }
@@ -198,9 +247,18 @@ export default function Tutor() {
             <span className={`inline-block max-w-[85%] rounded-2xl px-3.5 py-2.5 text-left ${
               m.autor === "aluno" ? "bg-roxo text-white" : "border border-borda bg-tela text-grafite"}`}>
               {m.autor === "tutor" ? (
-                <div className="prose-tutor">
-                  <RespostaRica texto={m.texto} />
-                </div>
+                m.emStream ? (
+                  // Enquanto o texto chega: render simples (o markdown/viz so e
+                  // parseado no fim, quando o bloco esta completo) + cursor.
+                  <span className="whitespace-pre-line">
+                    {m.texto || "…"}
+                    <span className="ml-0.5 inline-block animate-pulse">▍</span>
+                  </span>
+                ) : (
+                  <div className="prose-tutor">
+                    <RespostaRica texto={m.texto} />
+                  </div>
+                )
               ) : (
                 <>
                   {m.imagemPreview && (
@@ -226,7 +284,7 @@ export default function Tutor() {
             )}
           </div>
         ))}
-        {carregando && <p className="text-slate-500" aria-live="assertive">Pensando…</p>}
+        {/* O feedback de "pensando" agora e a propria bolha do tutor (… + cursor). */}
         <div ref={fimDaConversa} />
       </section>
 

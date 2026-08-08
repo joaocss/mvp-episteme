@@ -188,7 +188,22 @@ function montarPrompt(
 // achar no material da turma, o tutor recusa em vez de responder por fora.
 export interface OpcoesTurma { turmaId?: string; modoEstrito?: boolean }
 
-export async function responder(
+// Preparacao da resposta: ou ja e um resultado TERMINAL (recusa, pedido de
+// formato de questoes), ou traz tudo que falta para GERAR (prompt + metadados).
+// Separar isto da geracao permite fazer streaming do LLM sem duplicar o
+// pipeline (embed -> busca -> decisao de camada -> prompt).
+export type Preparacao =
+  | { modo: "terminal"; resultado: ResultadoTutor }
+  | {
+      modo: "gerar";
+      prompt: string;
+      maxTokens: number;
+      imagemBase64?: string;
+      origemResposta: OrigemResposta;
+      base: ResultadoTutor;
+    };
+
+export async function prepararResposta(
   escolaId: string,
   pergunta: string,
   dep: Dependencias,
@@ -197,7 +212,7 @@ export async function responder(
   disciplina = "matematica",
   ano = "6o ano",
   opcoes: OpcoesTurma = {},
-): Promise<ResultadoTutor> {
+): Promise<Preparacao> {
   // papel 'aluno': alem do conteudo da turma, a busca inclui docs de audiencia
   // 'aluno' e 'escola' (ex.: regimento visivel a todos).
   const filtro: FiltroConteudo = { disciplina, ano, turmaId: opcoes.turmaId, papel: "aluno" };
@@ -205,17 +220,20 @@ export async function responder(
   const base: ResultadoTutor = { recusado: false, fontes: [], eventos, telemetria: { melhorScore: 0 } };
 
   if (eventos.some((e) => e.categoria === "seguranca_infantil")) {
-    return { ...base, recusado: true, motivo: "seguranca_infantil", resposta: MENSAGEM_SEGURANCA };
+    return { modo: "terminal", resultado: { ...base, recusado: true, motivo: "seguranca_infantil", resposta: MENSAGEM_SEGURANCA } };
   }
 
   // Pedido de questoes sem formato definido -> pergunta o formato.
   const analise = analisarPedidoQuestoes(pergunta);
   if (analise.pedido && !analise.formato) {
     return {
-      ...base,
-      resposta: "Legal, vamos treinar! Você prefere questões de múltipla escolha ou questões objetivas (para resolver)?",
-      opcoes: ["Múltipla escolha", "Questões objetivas"],
-      tema: pergunta,
+      modo: "terminal",
+      resultado: {
+        ...base,
+        resposta: "Legal, vamos treinar! Você prefere questões de múltipla escolha ou questões objetivas (para resolver)?",
+        opcoes: ["Múltipla escolha", "Questões objetivas"],
+        tema: pergunta,
+      },
     };
   }
 
@@ -234,18 +252,12 @@ export async function responder(
   // inventa exercicio sem fonte). Chat livre segue para as camadas BNCC/geral.
   if (analise.formato) {
     if (melhorScore < LIMIAR_GROUNDING) {
-      return { ...base, recusado: true, motivo: "sem_base", resposta: MENSAGEM_SEM_BASE };
+      return { modo: "terminal", resultado: { ...base, recusado: true, motivo: "sem_base", resposta: MENSAGEM_SEM_BASE } };
     }
     const prompt = montarPrompt(
       regrasQuestoes(disciplina, ano)[analise.formato], REGRA_FONTE_LIVRO, perguntaSegura, contextoDoLivro(fontes), historico,
     );
-    const saidaLlm = await dep.llm.gerar(prompt, { maxTokens: 1200 });
-    const saida = guardrailSaida(saidaLlm.texto);
-    return {
-      ...base, resposta: saida.texto, origemResposta: "livro", eventos: [...eventos, ...saida.eventos],
-      telemetria: { melhorScore: base.telemetria.melhorScore, modelo: saidaLlm.modelo,
-        tokensEntrada: saidaLlm.tokensEntrada, tokensSaida: saidaLlm.tokensSaida },
-    };
+    return { modo: "gerar", prompt, maxTokens: 1200, origemResposta: "livro", base };
   }
 
   // Chat livre: camada 1 (livro) -> camada 2 (BNCC) -> camada 3 (conhecimento geral).
@@ -258,7 +270,7 @@ export async function responder(
   } else if (opcoes.modoEstrito) {
     // Modo estrito da turma: sem trecho no material da turma, recusa (nao usa
     // BNCC nem conhecimento geral). Guardrail de pertinencia por turma.
-    return { ...base, recusado: true, motivo: "fora_conteudo_turma", resposta: MENSAGEM_SEM_BASE };
+    return { modo: "terminal", resultado: { ...base, recusado: true, motivo: "fora_conteudo_turma", resposta: MENSAGEM_SEM_BASE } };
   } else {
     let trechosBncc: TrechoBncc[] = [];
     if (dep.repositorio.buscarBncc) {
@@ -280,19 +292,43 @@ export async function responder(
   }
 
   const prompt = montarPrompt(regrasSistema(disciplina, ano), regraFonte, perguntaSegura, contexto, historico);
-  const saidaLlm = await dep.llm.gerar(prompt, { maxTokens: 1200, imagemBase64 });
-  const saida = guardrailSaida(saidaLlm.texto);
+  return { modo: "gerar", prompt, maxTokens: 1200, imagemBase64, origemResposta, base };
+}
 
+// Monta o ResultadoTutor final a partir do texto gerado pelo LLM (aplica o
+// guardrail de saida). Usado tanto pela geracao de uma vez (responder) quanto
+// pela geracao em streaming (rota /api/tutor).
+export function montarResultado(
+  prep: Extract<Preparacao, { modo: "gerar" }>,
+  saidaLlm: { texto: string; modelo?: string; tokensEntrada?: number; tokensSaida?: number },
+): ResultadoTutor {
+  const saida = guardrailSaida(saidaLlm.texto);
   return {
-    ...base,
+    ...prep.base,
     resposta: saida.texto,
-    origemResposta,
-    eventos: [...eventos, ...saida.eventos],
+    origemResposta: prep.origemResposta,
+    eventos: [...prep.base.eventos, ...saida.eventos],
     telemetria: {
-      melhorScore: base.telemetria.melhorScore,
+      melhorScore: prep.base.telemetria.melhorScore,
       modelo: saidaLlm.modelo,
       tokensEntrada: saidaLlm.tokensEntrada,
       tokensSaida: saidaLlm.tokensSaida,
     },
   };
+}
+
+export async function responder(
+  escolaId: string,
+  pergunta: string,
+  dep: Dependencias,
+  historico: TurnoHistorico[] = [],
+  imagemBase64?: string,
+  disciplina = "matematica",
+  ano = "6o ano",
+  opcoes: OpcoesTurma = {},
+): Promise<ResultadoTutor> {
+  const prep = await prepararResposta(escolaId, pergunta, dep, historico, imagemBase64, disciplina, ano, opcoes);
+  if (prep.modo === "terminal") return prep.resultado;
+  const saidaLlm = await dep.llm.gerar(prep.prompt, { maxTokens: prep.maxTokens, imagemBase64: prep.imagemBase64 });
+  return montarResultado(prep, saidaLlm);
 }
