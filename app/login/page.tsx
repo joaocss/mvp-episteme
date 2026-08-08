@@ -107,6 +107,13 @@ export default function PaginaLogin() {
               <label htmlFor="senha" className="rotulo-campo">Senha</label>
               <input id="senha" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required className="campo" />
             </div>
+            {modo === "entrar" && (
+              <div className="-mt-1 text-right">
+                <a href="/recuperar-senha" className="text-xs font-medium text-roxo hover:underline">
+                  Esqueci minha senha
+                </a>
+              </div>
+            )}
             {erro && (
               <p className="rounded-lg border border-alerta/30 bg-red-50 px-3 py-2 text-sm text-alerta" role="alert">
                 {erro}
